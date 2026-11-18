@@ -63,3 +63,24 @@ None.
 ### Counts
 
 11 candidates, 3 kept (2 fix, 1 nit), 8 wontfix. Adversary `sol`, 2 exchanges.
+
+## Fix pass 1
+
+All taken as proposed, with no pushback.
+
+| Item | Commit | Result |
+|---|---|---|
+| Fix 1 (trailing colon) | `a89d98a` | `default_message` strips the message; a test covers `RuntimeError("\n")`. |
+| Fix 2 (`offline.py`) | `440457e` | The example checks `getattr(e, "reason", e)`, with one sentence about `urllib`. The test raises a `URLError`. |
+| Nit 3 (empty 400) | `7bb6749` | The 400's `detail` falls back to the exception's type name. |
+| Rename (asked for by the user, not a review item) | `5e91804` | `placement` is `prompt_role` everywhere outside `docs/`. |
+
+## Open items
+
+- The 400 and 503 replies also show their `detail` without the "Couldn't transcribe:" prefix. The plan's wording covers it; it was not asked for separately.
+- From the PR #3 review, still to discuss: the signing check in `bundle.sh` (item 2).
+- Not run against a real failing model or the real HUD; the behaviour is covered by tests only.
+
+## Tests
+
+`cd sidecar && uv run pytest -q && uv run ruff check . && uv run pyright`: 104 passed, ruff clean, pyright 0 errors. `app/test.sh`: 7 tests passed.
