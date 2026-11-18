@@ -86,16 +86,18 @@ log in. Until then the menu shows `Access to model … is restricted`. Either:
 ## Log
 
 "Open Log…" in the menu opens `~/Library/Application Support/SloprFlow/log.txt`, the text of
-your last 100 dictations, oldest first, one paragraph each.
+your last 100 dictations, oldest first, one line each. The app always keeps it; an
+`on_output` hook (below) can change what an entry says or keep a dictation out.
 
 ## Lifecycle hooks
 
-The text passes through three hooks you can write in plain Python: `on_transcribed` after speech
-recognition, `on_cleaned` after the cleanup model, `on_logged` once the text has been sent to be
-pasted. Put hook files in `~/Library/Application Support/SloprFlow/hooks/`, a folder you create,
-and choose "Restart Slopr Flow". The log above is the built-in `log.py` hook file; a `log.py` of
-your own replaces it. See [examples/README.md](examples/README.md) for vocabulary fixes, a
-different voice and a different log.
+The text passes through four hooks you can write in plain Python, each taking the text as a
+plain string and returning the text for the next phase: `on_transcribed` after speech
+recognition, `on_cleaned` after the cleanup model, `on_output` once the text has been sent to be
+pasted (the log gets what it returns), and `on_done` once the log entry has been written. Put
+hook files in `~/Library/Application Support/SloprFlow/hooks/`, a folder you create, and choose
+"Restart Slopr Flow". See [examples/README.md](examples/README.md) for vocabulary fixes, a
+different voice and changes to what is logged.
 
 ## Licenses and attributions
 
