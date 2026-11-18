@@ -13,7 +13,9 @@ enum HUDState: Equatable {
         case .listening(let level): "listening " + String(format: "%.2f", min(max(level, 0), 1))
         case .thinking: "thinking"
         case .warning(let text):
-            "warning " + text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).joined(separator: " ")
+            // Under PIPE_BUF (512 bytes), so a non-blocking write takes the whole line or none of it.
+            "warning " + String(text.unicodeScalars.prefix(120))
+                .split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).joined(separator: " ")
         }
     }
 }
@@ -27,7 +29,6 @@ enum HUDState: Equatable {
     private var command = Config.renderer  // nil once it has stopped: it is not tried again until a restart
     private var process: Process?
     private var input: FileHandle?
-    private var unsent = Data()  // the end of a line the pipe took only part of
 
     func start() {
         signal(SIGPIPE, SIG_IGN)  // so writing to a program that has gone fails instead of killing the app
@@ -59,7 +60,6 @@ enum HUDState: Equatable {
         let id = ObjectIdentifier(process)
         process.terminationHandler = { _ in Task { @MainActor [weak self] in self?.exited(id) } }
         try? input?.close()
-        unsent = Data()
         do {
             try process.run()
         } catch {
@@ -84,11 +84,8 @@ enum HUDState: Equatable {
         onStop()
     }
 
-    /// Finishes a cut line before a new one, so the program never gets two glued together.
     private func write(_ line: String) {
         guard let input else { return }
-        let data = unsent.isEmpty ? Data((line + "\n").utf8) : unsent
-        let written = data.withUnsafeBytes { Darwin.write(input.fileDescriptor, $0.baseAddress, $0.count) }
-        if written > 0 { unsent = data.dropFirst(written) }
+        _ = Array((line + "\n").utf8).withUnsafeBytes { Darwin.write(input.fileDescriptor, $0.baseAddress, $0.count) }
     }
 }

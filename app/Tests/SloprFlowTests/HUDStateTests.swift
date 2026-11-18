@@ -16,3 +16,9 @@ import Testing
     #expect(HUDState.warning("Hello").line == "warning Hello")
     #expect(HUDState.warning("Couldn't paste\nTry again").line == "warning Couldn't paste Try again")
 }
+
+@Test func warningLineStaysUnderPipeBuf() {
+    let line = HUDState.warning(String(repeating: "🎙", count: 500)).line
+    #expect(line == "warning " + String(repeating: "🎙", count: 120))
+    #expect(line.utf8.count + 1 < 512)
+}
