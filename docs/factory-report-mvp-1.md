@@ -41,3 +41,68 @@
 ### Split
 
 None.
+
+No human check was needed: no Fix item was split or low confidence.
+
+## Work items (pass 0)
+
+Sidecar (`sidecar/`, `scripts/`):
+
+| # | Item | What landed | Commits |
+| --- | --- | --- | --- |
+| 1 | Scaffold and config | uv project, Python 3.14.10 pinned, frozen-dataclass config read with `tomllib`, plan's schema and defaults | `545c42b` |
+| 2 | Transcription | parakeet and whisper engines by config; body is 16-bit WAV (by RIFF header) or raw float32 LE PCM | `a360a5f`, `52665da` |
+| 3 | Cleanup and safety check | mlx-lm, greedy, thinking off; simplewords with its `system_v2.txt` loaded from the repo, utter with its own prompt; `is_plausible` falls back to raw | `c724301` |
+| 4 | HTTP server | `/health`, `/transcribe?cleanup=`, `/reload`; models loaded once on one worker thread and warmed up | `9edb629`, `51b79dc` |
+| 5 | Bootstrap script | `scripts/bootstrap.sh`: uv installs the pinned Python and the venv in Application Support; idempotent | `c6a0e0e` |
+| 6 | Contract doc | `sidecar/README.md` | `41eaaa1` |
+
+App (`app/`, root `README.md`):
+
+| # | Item | What landed | Commits |
+| --- | --- | --- | --- |
+| 7 | Package, bundle script, menu bar item | SwiftPM executable, `app/bundle.sh`, status icon per state, menu (cleanup toggle, open config, about, quit), About with the Parakeet CC-BY-4.0 credit | `4f76b30` |
+| 8 | Sidecar manager | runs bootstrap, launches the sidecar, polls `/health`, restarts with backoff, stops it on quit, shows load errors | `ce3f5ea` |
+| 9 | Global hotkey | listen-only CGEvent tap, Right Option only, fires on state change | `15678c3` |
+| 10 | Audio capture | AVAudioEngine tap converted to 16 kHz mono float32 in memory, with a level for the waveform | `28cebed` |
+| 11 | HUD | non-activating NSPanel: waveform, spinner, then the text | `32e135b` |
+| 12 | Transcribe and paste | POST on release; save pasteboard, write, ⌘V via CGEvent, restore; toast with "Press ⌘V" when paste can't be sent | `710bfce` |
+| 13 | Permissions and README | Accessibility and Microphone prompts, an "Allow …" menu item while one is missing, root README | `5bceb7d` |
+
+## Fix pass (pass base 494a875)
+
+All 11 items were sent; all were folded in with no pushback.
+
+| Item | Result | Commits |
+| --- | --- | --- |
+| Fix 1 audio tap crash | `@Sendable` on the tap block. A scratch test through the real `installTap` and microphone trapped (SIGTRAP) before and passed after with 16 000 samples for 1 s. No test committed: it needs microphone hardware, and a manual-rendering test would mean injecting the engine. | `b9ac245` |
+| (extra) | The same annotation on the `AVCaptureDevice.requestAccess` handlers. Precaution; not reproduced. | `36bb713` |
+| Fix 2 orphaned sidecar | Sidecar thread exits the process when its parent changes. `kill -9` of the app: sidecar gone in about 0.5 s. | `de96eda` |
+| Fix 3 bad config, port agreement | Port is the sidecar's first argument; the app reads it once for URL and launch. Malformed TOML and a wrong-type value both show as the menu's error. | `baf8d66`, `a29449c` |
+| Fix 4 hotkey resync | After re-enabling the tap, state is re-read with `CGEventSource.keyState` for Right Option (used instead of `flagsState & 0x40`, whose left/right bits the headers don't promise). By reading, not reproduced. | `4cd3101` |
+| Fix 5 whisper alone | `stt.model` defaults by engine; the written config and README leave the model line out. | `7db8dd3`, `fb6651a` |
+| Nit 6 stale load state | Models and error set together on each outcome. | `b575e9d` |
+| Nit 7 whisper preload | Removed. | `d047c69` |
+| Nit 8 config types | `TypeError` when a value's type differs from the default's. | `ad9b517` |
+| Nit 9 paste keycode | README sentence. | `ec01235` |
+| Nit 10 transient clipboard | `org.nspasteboard.TransientType` written with the text. | `7b778c0` |
+| Nit 11 Input Monitoring | README line. | `79ed671` |
+
+The fix pass was not itself reviewed (one review requested).
+
+## Open items
+
+- **Needs a person at the keyboard; not verified by any run:** holding Right Option with real speech through the whole flow; the first microphone prompt; granting Accessibility and a real ⌘V paste into other apps with the clipboard restored; Left Option staying inert; the look of the menu, HUD and About panel; HUD position on notched and multi-screen setups.
+- **Default cleanup model is gated on Hugging Face.** It needs the terms accepted and a token in `~/.cache/huggingface/token`. Done on this machine; anyone else building it hits the same step. The README covers it.
+- **Config edits need an app relaunch.** Nothing in the app calls `/reload`, and a failed load stays failed until relaunch (review candidate 5, Wontfix).
+- **Latency target unmeasured at 10 s.** About 75 ms transcription and 95 ms cleanup on a 5-second clip, against targets of 300 ms and 700 ms for 10 seconds.
+- **Cleanup models are limited to the plan's two**, because each needs its own prompt shape; any other `cleanup.model` is rejected at load.
+- **Safety check limit:** an answer that reuses the question's words can pass the word-overlap check.
+- **Asked during the run, not built:** bundling the models into the app so no model download is needed. Also, the Hugging Face library contacts the hub on each start unless offline mode is set.
+- **No committed test drives the real audio tap**, so the Fix 1 class of crash isn't guarded by the suite.
+
+## Tests
+
+- `cd sidecar && uv run pytest -q`: 21 passed. `uv run ruff check .`: clean. `uv run pyright`: 0 errors.
+- `swift build --package-path app`: Build complete, no warnings. `sh app/test.sh`: 4 tests passed (plain `swift test` runs nothing under Command Line Tools without Xcode).
+- Real-model smoke, default config: ready; "Um, so I think we should, uh, meet on Thursday. No wait, Friday at noon works better." came back as "So I think we should meet on Friday at noon."
