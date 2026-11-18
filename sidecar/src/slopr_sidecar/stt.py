@@ -33,7 +33,7 @@ def load_transcriber(engine: str, model: str) -> Transcriber:
             parakeet = from_pretrained(model)
 
             def transcribe(audio: np.ndarray) -> str:
-                mel = get_logmel(mx.array(audio, mx.bfloat16), parakeet.preprocessor_config)
+                mel = get_logmel(mx.array(audio), parakeet.preprocessor_config)
                 return parakeet.generate(mel)[0].text.strip()
 
             return transcribe
