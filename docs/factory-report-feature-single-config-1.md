@@ -89,3 +89,33 @@ the item stays a Fix.
 
 Candidates 15, kept 3 (1 fix, 2 nit), adversary `sol`, 2 calls: one independent read and one
 exchange.
+
+## Fix pass
+
+Pass base `8f2f29e9e140ab68c121276a4fe20457ac8b886f`.
+
+| Fix | Commit | Result |
+|---|---|---|
+| 1. The README's hotkey sentence (C14) | `5181692` | The sentence now reads "The hotkey starts working once it's granted and the config has been read." The rest of that bullet was reflowed. |
+
+## Open items
+
+- Nit 2: config errors are cut to 30 characters in the menu line.
+- Nit 3: "the sidecar itself ignores them" in `sidecar/README.md`.
+
+## Items dropped
+
+None.
+
+## Tests
+
+At `5181692`:
+
+- `uv run pytest -q`: 109 passed
+- `uv run ruff check .`: all checks passed
+- `uv run pyright`: 0 errors
+- `app/test.sh`: 5 tests passed
+- `swift build --package-path app`: build complete
+
+The app was not bundled or launched during the run, so `slopr-config` has not been run from the
+installed venv by the app itself.
