@@ -2,6 +2,8 @@
 
 import asyncio
 import logging
+import os
+import threading
 import time
 import wave
 from concurrent.futures import ThreadPoolExecutor
@@ -119,5 +121,14 @@ async def reload() -> dict:
     return await health()
 
 
+def exit_when_orphaned() -> None:
+    """Exit once the launching app is gone (crash or force quit), freeing the port and memory."""
+    parent = os.getppid()
+    while os.getppid() == parent:
+        time.sleep(1)
+    os._exit(0)
+
+
 def main() -> None:
+    threading.Thread(target=exit_when_orphaned, daemon=True).start()
     uvicorn.run(app, host="127.0.0.1", port=load_config().port)
