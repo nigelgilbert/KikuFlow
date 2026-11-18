@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from slopr_sidecar import lifecycle
 from slopr_sidecar.lifecycle import (
     POINTS,
     default_message,
@@ -116,40 +117,56 @@ def test_fire_stops_once_the_text_is_empty():
     assert calls == []
 
 
+@pytest.fixture
+def errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A temporary errors.txt."""
+    monkeypatch.setattr(lifecycle, "ERRORS", tmp_path / "errors.txt")
+    return tmp_path / "errors.txt"
+
+
+def entries(errors: Path) -> list[str]:
+    """The entries of errors.txt without their time."""
+    text = errors.read_text() if errors.exists() else ""
+    return [entry[17:] for entry in filter(None, text.split("\n\n"))]
+
+
 def labelled_error() -> KeyError:
     with pytest.raises(KeyError) as info, labelled("on_cleaned in voice.py:3"):
         raise KeyError("x")
     return info.value
 
 
-def test_on_error_loads_beside_the_text_hooks(tmp_path: Path):
+def test_on_error_loads_beside_the_text_hooks(tmp_path: Path, errors: Path):
     write(tmp_path / "errors.py", "def on_error(e): return 'nope'")
     hooks = load_hooks(tmp_path)
     assert [path.name for path, _ in hooks["on_error"]] == ["errors.py"]
     assert report(hooks, labelled_error()) == "nope"
 
 
-def test_first_str_from_on_error_wins(tmp_path: Path):
+def test_first_str_from_on_error_wins(tmp_path: Path, errors: Path):
     write(tmp_path / "a.py", "def on_error(e): return None")
     write(tmp_path / "b.py", "def on_error(e):\n    return f'first:\\n {type(e).__name__}'")
     write(tmp_path / "c.py", "def on_error(e): return 'second'")
     assert report(load_hooks(tmp_path), labelled_error()) == "first: KeyError"
+    assert entries(errors) == ["first: KeyError"]
 
 
-def test_on_error_returning_none_or_nothing_gives_the_default(tmp_path: Path):
+def test_on_error_returning_none_or_nothing_gives_the_default(tmp_path: Path, errors: Path):
     write(tmp_path / "a.py", "def on_error(e): pass")
     expected = "on_cleaned in voice.py:3: KeyError: 'x'"
     assert report(load_hooks(tmp_path), labelled_error()) == expected
     assert report(load_hooks(tmp_path / "missing"), labelled_error()) == expected
+    assert entries(errors) == [expected, expected]
 
 
-def test_on_error_returning_empty_suppresses_the_message(tmp_path: Path):
+def test_on_error_returning_empty_suppresses_the_message(tmp_path: Path, errors: Path):
     write(tmp_path / "a.py", "def on_error(e): return ''")
     write(tmp_path / "b.py", "def on_error(e): return 'not reached'")
     assert report(load_hooks(tmp_path), labelled_error()) == ""
+    assert not errors.exists()
 
 
-def test_on_error_gets_the_exception_with_its_type_and_note(tmp_path: Path):
+def test_on_error_gets_the_exception_with_its_type_and_note(tmp_path: Path, errors: Path):
     write(
         tmp_path / "a.py",
         "def on_error(e):\n"
@@ -159,8 +176,12 @@ def test_on_error_gets_the_exception_with_its_type_and_note(tmp_path: Path):
     assert report(load_hooks(tmp_path), labelled_error()) == "seen"
 
 
-def test_raising_on_error_is_skipped(tmp_path: Path, caplog: pytest.LogCaptureFixture):
+def test_raising_on_error_is_skipped_and_recorded(
+    tmp_path: Path, errors: Path, caplog: pytest.LogCaptureFixture
+):
     write(tmp_path / "a.py", "def on_error(e):\n    raise RuntimeError('broken')")
     write(tmp_path / "b.py", "def on_error(e): return 'next'")
     assert report(load_hooks(tmp_path), labelled_error()) == "next"
     assert "on_error in a.py:2" in caplog.text
+    # Its own failure is recorded under the default message, without going through on_error.
+    assert entries(errors) == ["on_error in a.py:2: RuntimeError: broken", "next"]

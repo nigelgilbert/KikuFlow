@@ -1,10 +1,11 @@
-"""The on_* hooks of plain .py files, and the log."""
+"""The on_* hooks of plain .py files, the log and errors.txt."""
 
 import logging
 import runpy
 import traceback
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,7 @@ log = logging.getLogger("uvicorn.error")
 POINTS = ("on_transcribed", "on_cleaned", "on_output", "on_done")
 HOOK_DIR = APP_DIR / "hooks"
 LOG = APP_DIR / "log.txt"
+ERRORS = APP_DIR / "errors.txt"
 
 # Each hook with the file it was loaded from, for its label. on_error takes the exception.
 type Hooks = dict[str, list[tuple[Path, Callable[[Any], str | None]]]]
@@ -77,21 +79,39 @@ def fire(hooks: Hooks, point: str, text: str) -> str:
 
 
 def report(hooks: Hooks, e: Exception) -> str:
-    """The message for `e`: the first str an on_error hook returns, else the default."""
+    """Write the message for `e` to errors.txt and return it: the first str an on_error hook
+    returns, else the default."""
     log.error("dictation failed", exc_info=e)
+    message = default_message(e)
     for path, hook in hooks["on_error"]:
         try:
-            message = hook(e)
+            new = hook(e)
         except Exception as failure:
             failure.add_note(hook_label("on_error", path, failure))
             log.error("on_error hook failed", exc_info=failure)
+            write_error(default_message(failure))
             continue
-        if isinstance(message, str):
-            return fold(message)
-    return default_message(e)
+        if isinstance(new, str):
+            message = fold(new)
+            break
+    if message:
+        write_error(message)
+    return message
+
+
+def append(path: Path, text: str, keep: int) -> None:
+    """Append `text` to the file at `path` as one line, keeping the last `keep`."""
+    old = path.read_text("utf-8").strip().split("\n\n") if path.exists() else []
+    path.write_text("\n\n".join([*filter(None, old), fold(text)][-keep:]), "utf-8")
 
 
 def write_log(text: str) -> None:
-    """Append `text` to the log as one line, keeping the last 100."""
-    old = LOG.read_text("utf-8").strip().split("\n\n") if LOG.exists() else []
-    LOG.write_text("\n\n".join([*filter(None, old), fold(text)][-100:]), "utf-8")
+    append(LOG, text, 100)
+
+
+def write_error(message: str) -> None:
+    """Add `message` to errors.txt with the time in front; a failed write only goes to stderr."""
+    try:
+        append(ERRORS, f"{datetime.now():%Y-%m-%d %H:%M} {message}", 50)
+    except Exception:
+        log.exception("errors.txt write failed")
