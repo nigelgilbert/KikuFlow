@@ -19,7 +19,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 
 from .cleanup import Cleaner, accept, load_cleaner
 from .config import Config, load_config
-from .lifecycle import HOOK_DIR, Hooks, fire, load_hooks, write_log
+from .lifecycle import HOOK_DIR, Hooks, fire, labelled, load_hooks, write_log
 from .stt import SAMPLE_RATE, Transcriber, decode_audio, load_transcriber
 
 log = logging.getLogger("uvicorn.error")
@@ -95,13 +95,15 @@ def run(audio: np.ndarray, cleanup: bool) -> tuple[dict, Callable[[], None]]:
         raise HTTPException(503, state.error or "models are loading")
     start = time.perf_counter()
     # A tap shorter than 0.1 s holds no speech.
-    raw = m.transcribe(audio) if len(audio) >= SAMPLE_RATE // 10 else ""
+    with labelled("speech recognition"):
+        raw = m.transcribe(audio) if len(audio) >= SAMPLE_RATE // 10 else ""
     transcribed = time.perf_counter()
     text = fire(m.hooks, "on_transcribed", raw)
     if cleanup and m.clean and text:
-        candidate = m.clean(text)
-        if accept(text, candidate, m.config.cleanup_safety_check):
-            text = candidate
+        with labelled("cleanup model"):
+            candidate = m.clean(text)
+            if accept(text, candidate, m.config.cleanup_safety_check):
+                text = candidate
     text = fire(m.hooks, "on_cleaned", text)
     cleaned = time.perf_counter()
     reply = {
@@ -120,10 +122,8 @@ def after_reply(hooks: Hooks, text: str) -> None:
     text = fire(hooks, "on_output", text)
     if not text:
         return
-    try:
+    with labelled("log write"):
         write_log(text)
-    except Exception:
-        log.exception("log write failed")
     fire(hooks, "on_done", text)
 
 

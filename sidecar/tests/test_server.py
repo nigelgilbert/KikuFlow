@@ -296,17 +296,14 @@ def test_on_output_fires_before_the_log_is_written_and_on_done_after(
     ]
 
 
-def test_failed_log_write_is_logged_and_on_done_still_fires(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    hooks: Path,
-    client: TestClient,
-    caplog: pytest.LogCaptureFixture,
+def test_failed_log_write_stops_on_done(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, hooks: Path, client: TestClient
 ):
     monkeypatch.setattr(lifecycle, "LOG", tmp_path / "missing/log.txt")
-    client.post("/transcribe", content=SPEECH)
-    assert "log write failed" in caplog.text
-    assert calls(hooks)[-1][0] == "on_done"
+    with pytest.raises(FileNotFoundError) as info:
+        client.post("/transcribe", content=SPEECH)
+    assert info.value.__notes__ == ["log write"]
+    assert calls(hooks)[-1][0] == "on_output"
 
 
 def test_on_output_decides_what_is_logged_but_not_the_reply(
