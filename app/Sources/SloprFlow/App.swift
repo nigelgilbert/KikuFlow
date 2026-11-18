@@ -44,7 +44,8 @@ enum Status: Equatable {
 
     private let sidecar = Sidecar()
     private let recorder = Recorder()
-    private let hud = HUD()
+    private let hud: any Renderer = BuiltinRenderer()
+    private var hide: Task<Void, Never>?
     private let key = Config.hotkey
     private lazy var hotkey = Hotkey(key: key) { [weak self] down in self?.hotkeyChanged(down: down) }
     private var activity: Status? { didSet { refresh() } }
@@ -104,37 +105,53 @@ enum Status: Equatable {
 
     private func startListening() {
         guard activity == nil else { return }
-        guard sidecar.status == .ready else { return hud.warn("Slopr Flow isn't ready. \(sidecar.status.title)") }
+        guard sidecar.status == .ready else {
+            return render(.warning("Slopr Flow isn't ready. \(sidecar.status.title)"))
+        }
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized: break
         case .notDetermined:
             allowMicrophone()
-            return hud.warn("Allow microphone access, then hold \(key.title) again")
+            return render(.warning("Allow microphone access, then hold \(key.title) again"))
         default:
-            return hud.warn("Microphone access is off. Turn it on in System Settings › Privacy & Security.")
+            return render(.warning("Microphone access is off. Turn it on in System Settings › Privacy & Security."))
         }
         do {
-            try recorder.start { [hud] in hud.level($0) }
+            // A level can land after stop(); dropping it keeps the HUD from switching back to listening.
+            try recorder.start { [weak self] rms in
+                if self?.activity == .listening { self?.render(.listening(level: min(1, rms * 12))) }
+            }
         } catch {
-            return hud.warn(error.localizedDescription)
+            return render(.warning(error.localizedDescription))
         }
         activity = .listening
-        hud.listen()
+        render(.listening(level: 0))
     }
 
     private func finishListening() {
         let samples = recorder.stop()
         activity = .thinking
-        hud.think()
+        render(.thinking)
         Task {
             defer { activity = nil }
             do {
                 let text = try await sidecar.transcribe(samples, cleanup: cleanup)
                 if !text.isEmpty { paste(text) }
-                hud.dismiss()
+                render(.hidden)
             } catch {
-                hud.warn("Couldn't transcribe: \(error.localizedDescription)")
+                render(.warning("Couldn't transcribe: \(error.localizedDescription)"))
             }
+        }
+    }
+
+    /// Every HUD update goes through here, so anything shown cancels a pending warning hide.
+    private func render(_ state: HUDState) {
+        hide?.cancel()
+        hud.render(state)
+        guard case .warning = state else { return }
+        hide = Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            if !Task.isCancelled { hud.render(.hidden) }
         }
     }
 
@@ -166,7 +183,7 @@ enum Status: Equatable {
             "-c", "while kill -0 \"$1\" 2>/dev/null; do sleep 0.1; done; open \"$0\"",
             Bundle.main.bundlePath, String(ProcessInfo.processInfo.processIdentifier),
         ]
-        do { try relaunch.run() } catch { return hud.warn("Couldn't restart: \(error.localizedDescription)") }
+        do { try relaunch.run() } catch { return render(.warning("Couldn't restart: \(error.localizedDescription)")) }
         NSApp.terminate(nil)
     }
 
