@@ -200,12 +200,12 @@ a string decides what the HUD shows and `errors.txt` gets; the rest don't run. `
 nothing is shown or written. `None`, or no `on_error` at all, gives the default message. An
 `on_error` that raises is skipped, and its own failure goes into `errors.txt`.
 
-`offline.py` keeps a dropped connection out of `errors.txt`, say from an `on_done` hook that
-uploads each dictation to an archive of yours. It sees every failure, so a `ConnectionError`
-before the reply is silent too: nothing is pasted and the HUD shows nothing.
+`offline.py` keeps a failed upload, say from an `on_done` archive hook, out of `errors.txt`.
+`urllib` wraps the `ConnectionError` in `e.reason`. A dropped connection before the reply is
+silent too: nothing is pasted and the HUD shows nothing.
 
 ```python
 def on_error(e):
-    if isinstance(e, ConnectionError):
+    if isinstance(getattr(e, "reason", e), ConnectionError):
         return ""
 ```
