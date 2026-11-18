@@ -8,7 +8,8 @@ enum Config {
     static let defaults = """
         [stt]
         engine = "parakeet"   # or "whisper"
-        model = "mlx-community/parakeet-tdt-0.6b-v3"
+        # model defaults by engine: parakeet "mlx-community/parakeet-tdt-0.6b-v3",
+        # whisper "mlx-community/whisper-large-v3-turbo"
 
         [cleanup]
         enabled = true
