@@ -51,7 +51,6 @@ engine = "parakeet"   # or "whisper"
 # whisper "mlx-community/whisper-large-v3-turbo"
 
 [cleanup]
-enabled = true
 model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
 # or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
 # prompt_file = ""      # a text file whose contents replace the model's built-in prompt
@@ -69,8 +68,6 @@ key = "right_option"   # hold to talk; or "fn", "left_option", "left_command",
 Quit and reopen the app after editing it. The menu's first line names the key in use; a name
 that isn't in the list falls back to Right Option. With `key = "fn"`, set System Settings ›
 Keyboard › "Press 🌐 key to" to "Do Nothing", or macOS also runs that action when you let go.
- "Clean Up Text" in the menu turns the cleanup pass off
-and on without reloading anything.
 
 ### Your own cleanup prompt or model
 
@@ -112,15 +109,9 @@ the text is pasted also shows in the HUD, and nothing is pasted. The app always 
 
 ## Lifecycle hooks
 
-The text passes through four hooks you can write in plain Python, each taking the text as a
-plain string and returning the text for the next phase: `on_transcribed` after speech
-recognition, `on_cleaned` after the cleanup model, `on_sent` once the text has been sent to be
-pasted (the log gets what it returns), and `on_done` once the log entry has been written. Put
-hook files in `~/Library/Application Support/SloprFlow/hooks/`, a folder you create, and choose
-"Restart Slopr Flow". A hook that raises stops the dictation there, and `on_error`, the one
-hook that gets the exception instead of the text, decides what the failure says. See
-[examples/README.md](examples/README.md) for vocabulary fixes, a different voice, changes to
-what is logged and handling failures.
+Hooks are plain Python functions that change the text after each step of a dictation, or the
+message of a failure. Put hook files in `~/Library/Application Support/SloprFlow/hooks/`; see
+[examples/README.md](examples/README.md).
 
 ## Licenses and attributions
 
