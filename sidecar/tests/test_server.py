@@ -1,21 +1,38 @@
 import threading
 from collections.abc import Iterator
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from slopr_sidecar import server
+from slopr_sidecar import config, server
 from slopr_sidecar.config import Config
 
 SPEECH = np.zeros(16_000, "<f4").tobytes()  # one second of raw float32 PCM
 RAW = "um so we should uh meet on Friday"
+
+# A hook file that appends each call to calls.txt next to it, after the other hook files.
+RECORDER = """
+import threading
+from pathlib import Path
+
+def record(point, u):
+    with Path(__file__).with_name("calls.txt").open("a") as f:
+        print(point, u.text, threading.current_thread().name, sep="|", file=f)
+
+def on_transcribed(u): record("on_transcribed", u)
+def on_cleaned(u): record("on_cleaned", u)
+def on_logged(u): record("on_logged", u)
+"""
 
 
 class Fakes:
     def __init__(self) -> None:
         self.config = Config()
         self.cleaned = "We should meet on Friday."
+        self.cleaner_inputs: list[str] = []
         self.cleaner_loads = 0
         self.loaded = threading.Event()
         self.loaded.set()
@@ -28,12 +45,33 @@ class Fakes:
 
     def load_cleaner(self, model: str):
         self.cleaner_loads += 1
-        return lambda raw: self.cleaned
+
+        def clean(raw: str) -> str:
+            self.cleaner_inputs.append(raw)
+            return self.cleaned
+
+        return clean
 
 
 @pytest.fixture
-def fakes(monkeypatch: pytest.MonkeyPatch) -> Fakes:
+def hooks(tmp_path: Path) -> Path:
+    """The user hook directory, holding the recorder."""
+    (tmp_path / "hooks").mkdir()
+    (tmp_path / "hooks/zz_recorder.py").write_text(RECORDER)
+    return tmp_path / "hooks"
+
+
+def calls(hooks: Path) -> list[list[str]]:
+    path = hooks / "calls.txt"
+    return [line.split("|") for line in path.read_text().splitlines()] if path.exists() else []
+
+
+@pytest.fixture
+def fakes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, hooks: Path) -> Fakes:
+    """Fake models, and temporary stand-ins for the app directory and both hook directories."""
     fakes = Fakes()
+    monkeypatch.setattr(config, "APP_DIR", tmp_path)
+    monkeypatch.setattr(server, "HOOK_DIRS", (tmp_path / "builtin", hooks))
     monkeypatch.setattr(server, "load_config", lambda: fakes.config)
     monkeypatch.setattr(server, "load_transcriber", fakes.load_transcriber)
     monkeypatch.setattr(server, "load_cleaner", fakes.load_cleaner)
@@ -113,3 +151,69 @@ def test_load_failure_is_reported(fakes: Fakes):
         assert health["ready"] is False
         assert health["error"] == "ValueError: unknown stt.engine 'vosk'"
         assert client.post("/transcribe", content=SPEECH).status_code == 503
+
+
+def test_hooks_shape_the_text_around_cleanup(fakes: Fakes, hooks: Path, client: TestClient):
+    (hooks / "a.py").write_text(
+        "def on_transcribed(u): return 'please call Anna tomorrow'\n"
+        "def on_cleaned(u): return u.text + '!'\n"
+    )
+    fakes.cleaned = "Please call Anna tomorrow."
+    client.post("/reload")
+    body = client.post("/transcribe", content=SPEECH).json()
+    # The cleaner and its plausibility check see the hook's text, not the raw transcript.
+    assert fakes.cleaner_inputs[-1] == "please call Anna tomorrow"
+    assert body["raw"] == RAW
+    assert body["clean"] == "Please call Anna tomorrow.!"
+    assert set(body["timings"]) == {"stt_ms", "cleanup_ms"}
+    assert [c[:2] for c in calls(hooks)] == [
+        ["on_transcribed", "please call Anna tomorrow"],
+        ["on_cleaned", "Please call Anna tomorrow.!"],
+        ["on_logged", "Please call Anna tomorrow.!"],
+    ]
+
+
+@pytest.mark.parametrize(("query", "enabled"), [("?cleanup=false", True), ("", False)])
+def test_on_cleaned_fires_with_cleanup_off(fakes: Fakes, hooks: Path, query: str, enabled: bool):
+    fakes.config = Config(cleanup_enabled=enabled)
+    with TestClient(server.app) as client:
+        assert client.post("/transcribe" + query, content=SPEECH).json()["clean"] == RAW
+    assert ["on_cleaned", RAW] in [c[:2] for c in calls(hooks)]
+
+
+def test_empty_transcription_fires_no_hooks(hooks: Path, client: TestClient):
+    assert client.post("/transcribe", content=b"").json()["clean"] == ""
+    assert calls(hooks) == []
+
+
+def test_hook_returning_empty_text_stops_the_pipeline(
+    fakes: Fakes, hooks: Path, client: TestClient
+):
+    (hooks / "a.py").write_text("def on_transcribed(u): return ''\n")
+    client.post("/reload")
+    assert client.post("/transcribe", content=SPEECH).json()["clean"] == ""
+    assert set(fakes.cleaner_inputs) == {"Hello there."}  # only the warm-up passes
+    assert calls(hooks) == []
+
+
+def test_run_leaves_on_logged_for_after_the_reply(hooks: Path, client: TestClient):
+    wait_for_load()
+    audio, now = np.zeros(16_000, "<f4"), datetime.now().astimezone()
+    _, logged = server.executor.submit(server.run, audio, True, now).result()
+    assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned"]
+    logged()
+    assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", "on_logged"]
+
+
+def test_on_logged_fires_once_on_the_model_executor(hooks: Path, client: TestClient):
+    client.post("/transcribe", content=SPEECH)
+    [logged] = [c for c in calls(hooks) if c[0] == "on_logged"]
+    assert logged[2] == server.executor.submit(lambda: threading.current_thread().name).result()
+
+
+def test_hook_file_failing_to_load_leaves_health_alone(hooks: Path, client: TestClient):
+    (hooks / "broken.py").write_text("raise RuntimeError('broken hook file')\n")
+    client.post("/reload")
+    wait_for_load()
+    health = client.get("/health").json()
+    assert (health["ready"], health["error"]) == (True, None)
