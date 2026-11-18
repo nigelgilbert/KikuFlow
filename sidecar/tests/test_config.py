@@ -14,7 +14,6 @@ def test_missing_file_gives_defaults(tmp_path: Path):
         cleanup_prompt_file="",
         cleanup_prompt_role="",
         cleanup_safety_check=True,
-        port=48123,
     )
 
 

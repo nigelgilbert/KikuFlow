@@ -35,9 +35,11 @@ triangle when the models failed to load (the menu shows the error).
   Dvorak it may not be ⌘V.
 - **Microphone**, asked for the first time you hold the key.
 
-While either is missing the menu has an item that opens the right System Settings pane. The
-bundle is ad-hoc signed, so after a rebuild macOS treats it as a new app: remove Slopr Flow
-from the Accessibility list and grant it again.
+While either is missing the menu has an item that opens the right System Settings pane.
+`app/bundle.sh` signs with a certificate named "Slopr Flow Dev" when your keychain has one, and
+the Accessibility grant then survives rebuilds. Without one the bundle is ad-hoc signed, so
+after a rebuild macOS treats it as a new app: remove Slopr Flow from the Accessibility list and
+grant it again.
 
 ## Config
 
