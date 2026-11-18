@@ -51,5 +51,5 @@ def fire(hooks: Hooks, point: str, u: Utterance) -> None:
         except Exception:
             log.exception("%s hook failed", point)
             continue
-        if isinstance(text, str):
+        if point != "on_logged" and isinstance(text, str):  # on_logged's return is ignored
             u.text = text

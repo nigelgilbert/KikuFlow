@@ -54,6 +54,13 @@ def test_fire_replaces_text_on_str_keeps_it_on_none_and_never_touches_raw():
     assert (u.raw, u.text) == ("hello", "shouted HELLO")
 
 
+def test_on_logged_return_values_are_ignored():
+    calls = []
+    hooks = {"on_logged": [lambda u: "", lambda u: calls.append(u.text)]}
+    fire(hooks, "on_logged", utterance())
+    assert calls == ["hello"]
+
+
 def test_failing_hook_is_logged_and_later_hooks_still_run(caplog: pytest.LogCaptureFixture):
     def broken(u: Utterance) -> str:
         raise RuntimeError("boom")
