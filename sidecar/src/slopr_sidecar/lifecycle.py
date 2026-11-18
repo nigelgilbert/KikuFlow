@@ -78,7 +78,7 @@ def fire(hooks: Hooks, point: str, text: str) -> str:
         if not text:
             break
         new = call(point, path, hook, text)
-        if point != "on_done" and new is not None:  # on_done's return is ignored
+        if point != "on_done" and new is not None:  # a str from on_done changes nothing
             text = new
     return text
 
