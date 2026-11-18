@@ -17,13 +17,15 @@ fires after its phase, and what it returns is what the next phase receives:
 | `on_output` | output | the log |
 | `on_done` | log | nothing; it only observes |
 
-Each hook gets the text as a plain string `t`:
+Each hook gets the text as a plain string `t`, except `on_error`, the one hook that gets the
+exception `e` and not the text:
 
 ```
 def on_transcribed(t) -> str | None   # return the text the cleanup model receives
 def on_cleaned(t) -> str | None       # return the text that is output
 def on_output(t) -> str | None        # return the text that is logged
 def on_done(t) -> None                # the dictation is finished
+def on_error(e) -> str | None         # return the message for a failure
 ```
 
 A hook that returns a string replaces the text; returning `None` leaves it alone, so a hook that
@@ -36,10 +38,18 @@ dictation stays out of the log and `on_done` does not fire.
 `on_done` run after that, so they don't delay the paste, but a slow one holds up the next
 dictation. `on_output` cannot change what is pasted.
 
-A hook that raises, or a hook file that fails to import, is skipped with its traceback on the
-sidecar's stderr; the dictation still completes. To see that output, quit Slopr Flow and start
-its binary from Terminal, for a build from this repo
-`"app/build/Slopr Flow.app/Contents/MacOS/SloprFlow"`.
+A failure is loud. When speech recognition, the cleanup model, a hook or the log write raises,
+nothing after it runs, and the message, such as `on_cleaned in voice.py:3: KeyError: 'x'`, goes
+into `~/Library/Application Support/SloprFlow/errors.txt` ("Open Errors…" in the menu), which
+keeps the last 50 with the time in front. Before the reply (speech recognition,
+`on_transcribed`, the cleanup model, `on_cleaned`) nothing is pasted and the HUD shows the
+message. After it (`on_output`, the log, `on_done`) the text is already pasted and the rest is
+skipped: a failing `on_output` means no log entry and no `on_done`. A hook file that fails to
+import stops the models loading, and the menu shows the warning triangle with
+`hook file voice.py: …`. The full traceback goes to the sidecar's stderr; to see it, quit Slopr
+Flow and start its binary from Terminal, for a build from this repo
+`"app/build/Slopr Flow.app/Contents/MacOS/SloprFlow"`. See
+[When something fails](#when-something-fails) for keeping a dictation and choosing the message.
 
 Hook files live in one place, `~/Library/Application Support/SloprFlow/hooks/`, a folder you
 create (`mkdir -p ~/Library/Application\ Support/SloprFlow/hooks`). They load in filename order,
@@ -159,4 +169,43 @@ ARCHIVE = Path.home() / "Documents/Dictations.txt"
 def on_done(t):
     with ARCHIVE.open("a", encoding="utf-8") as f:
         f.write(f"{datetime.now():%Y-%m-%d %H:%M}  {' '.join(t.split())}\n")
+```
+
+## When something fails
+
+A hook that calls something that can fail, like a web API, catches its own errors and returns
+`None`, so the text it was given carries on. This is the way to keep a dictation when a hook's
+own call fails. `polish.py` sends the cleaned text to a service of yours and keeps the cleaned
+text when the service doesn't answer:
+
+```python
+import json
+import urllib.request
+
+URL = "http://127.0.0.1:8080/polish"
+
+
+def on_cleaned(t):
+    request = urllib.request.Request(URL, json.dumps({"text": t}).encode())
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            return json.load(response)["text"]
+    except OSError:
+        return None
+```
+
+`on_error(e)` decides what a failure says. `e` is the exception itself, with its own type, so
+`isinstance` works. The `on_error` hooks run in filename order, and the first one that returns
+a string decides what the HUD shows and `errors.txt` gets; the rest don't run. `""` means
+nothing is shown or written. `None`, or no `on_error` at all, gives the default message. An
+`on_error` that raises is skipped, and its own failure goes into `errors.txt`.
+
+`offline.py` keeps a dropped connection out of `errors.txt`, say from an `on_done` hook that
+uploads each dictation to an archive of yours. It sees every failure, so a `ConnectionError`
+before the reply is silent too: nothing is pasted and the HUD shows nothing.
+
+```python
+def on_error(e):
+    if isinstance(e, ConnectionError):
+        return ""
 ```

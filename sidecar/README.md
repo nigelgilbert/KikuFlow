@@ -38,8 +38,9 @@ Answers immediately, also while models load (first launch downloads several GB).
 ```
 
 - Loading: `ready` false, `error` null, model fields null. Keep polling.
-- Load failed: `ready` false, `error` is a message (e.g. bad config, download failure). Show
-  it; the server stays up, fix the config and call `/reload`.
+- Load failed: `ready` false, `error` is a message (e.g. bad config, download failure, or a
+  hook file that fails to import, as `hook file voice.py: ModuleNotFoundError: …`). Show it;
+  the server stays up, fix the cause and call `/reload`.
 - `cleanup_model` is null when cleanup is disabled in config.
 
 ### `POST /transcribe?cleanup=true|false`
@@ -70,12 +71,23 @@ three do not delay the reply, but they run on the model thread, so a slow hook h
 dictation. `raw` is always the speech recognition output. Once the text is empty, nothing
 further runs, the log included. The log is always written, by the sidecar itself: the last 100
 texts in `~/Library/Application Support/SloprFlow/log.txt`, one line each. Hook files are the
-`*.py` files in `~/Library/Application Support/SloprFlow/hooks/`. They load with the models, so
-`/reload` re-reads them; one that fails to import is skipped and does not set `/health`'s
-`error`. Examples: `examples/README.md`.
+`*.py` files in `~/Library/Application Support/SloprFlow/hooks/`. They load before the models,
+so `/reload` re-reads them, and one that fails to import fails the load. Examples:
+`examples/README.md`.
 
-Errors: `400` malformed audio, `503` models not loaded (`detail` holds the reason). Requests
-are processed one at a time; one sent while models load waits for them.
+An exception from speech recognition, the cleanup model, a hook or the log write is not caught
+and carried on: nothing after it runs. The sidecar adds a note to it naming where it came from
+(`speech recognition`, `cleanup model`, `log write`, or the hook as `on_cleaned in voice.py:3`)
+and the default message is `on_cleaned in voice.py:3: KeyError: 'x'`, on one line. `on_error(e)`
+hooks get the exception, in filename order; the first that returns a string decides the
+message, `""` means none, and one that raises is skipped and recorded under its own default
+message. The message goes into `~/Library/Application Support/SloprFlow/errors.txt`, the last 50
+with the time in front, and the traceback to stderr. A failure after the response goes nowhere
+else.
+
+Errors: `400` malformed audio; `500` a failure before the response, with the message as
+`detail` (`""` when `on_error` returned `""`); `503` models not loaded (`detail` holds the
+reason). Requests are processed one at a time; one sent while models load waits for them.
 
 ### `POST /reload`
 
