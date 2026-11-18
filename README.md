@@ -33,6 +33,8 @@ triangle when the models failed to load (the menu shows the error).
   the clipboard and the HUD says "Press ⌘V". The paste sends the key in the V position of a
   US layout, so on layouts like Dvorak it may not be ⌘V.
 - **Microphone**, asked for the first time you hold the key.
+- **Input Monitoring**, if macOS asks for it, also lets the hotkey work, but paste still needs
+  Accessibility.
 
 While either is missing the menu has an item that opens the right System Settings pane. The
 bundle is ad-hoc signed, so after a rebuild macOS treats it as a new app: remove Slopr Flow
