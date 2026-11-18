@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from slopr_sidecar.config import Config, load_config
 
 
@@ -28,3 +30,10 @@ def test_explicit_stt_model_wins_over_engine_default(tmp_path: Path):
     path = tmp_path / "config.toml"
     path.write_text('[stt]\nengine = "whisper"\nmodel = "mlx-community/whisper-tiny"\n')
     assert load_config(path).stt_model == "mlx-community/whisper-tiny"
+
+
+def test_wrongly_typed_value_is_rejected(tmp_path: Path):
+    path = tmp_path / "config.toml"
+    path.write_text('[cleanup]\nenabled = "false"\n')
+    with pytest.raises(TypeError, match="cleanup_enabled must be bool"):
+        load_config(path)
