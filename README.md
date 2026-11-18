@@ -127,7 +127,7 @@ what is logged and handling failures.
 - Speech recognition: [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)
   by NVIDIA, licensed under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/), used through
   the MLX conversion `mlx-community/parakeet-tdt-0.6b-v3` and
-  [parakeet-mlx](https://github.com/senstella/parakeet-mlx). Also shown in the app's About panel.
+  [parakeet-mlx](https://github.com/senstella/parakeet-mlx).
 - Cleanup models: `ReFyneLabs/simplewords-dictation-cleanup-v3` and
   `devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit`, under the terms on their model
   pages.

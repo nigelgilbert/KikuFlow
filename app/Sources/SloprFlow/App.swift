@@ -71,7 +71,6 @@ enum Status: Equatable {
             NSMenuItem(title: "Open Log…", action: #selector(openLog), keyEquivalent: ""),
             NSMenuItem(title: "Open Errors…", action: #selector(openErrors), keyEquivalent: ""),
             .separator(),
-            NSMenuItem(title: "About Slopr Flow", action: #selector(about), keyEquivalent: ""),
             NSMenuItem(title: "Quit Slopr Flow", action: #selector(NSApplication.terminate), keyEquivalent: "q"),
             NSMenuItem(title: "Restart Slopr Flow", action: #selector(restart), keyEquivalent: "r"),
         ]
@@ -190,16 +189,6 @@ enum Status: Equatable {
         ]
         do { try relaunch.run() } catch { return render(.warning("Couldn't restart: \(error.localizedDescription)")) }
         NSApp.terminate(nil)
-    }
-
-    @objc private func about() {
-        let credits = """
-            Speech recognition uses NVIDIA Parakeet TDT 0.6B v3 (nvidia/parakeet-tdt-0.6b-v3) \
-            by NVIDIA, licensed under CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/), \
-            run through the MLX conversion mlx-community/parakeet-tdt-0.6b-v3.
-            """
-        NSApp.activate()
-        NSApp.orderFrontStandardAboutPanel(options: [.credits: NSAttributedString(string: credits)])
     }
 }
 
