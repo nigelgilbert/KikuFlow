@@ -11,7 +11,9 @@ import Synchronization
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, let sink = Sink(from: format) else { throw Failure("No microphone found") }
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+        // @Sendable: AVFoundation calls this on its audio thread; without it the closure would
+        // inherit main-actor isolation and trap there.
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { @Sendable buffer, _ in
             let level = sink.append(buffer)
             Task { @MainActor in onLevel(level) }
         }
