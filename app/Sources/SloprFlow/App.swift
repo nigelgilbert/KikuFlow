@@ -45,8 +45,8 @@ enum Status: Equatable {
     private let recorder = Recorder()
     private let hud: any Renderer = BuiltinRenderer()
     private var hide: Task<Void, Never>?
-    private let key = Config.hotkey
-    private lazy var hotkey = Hotkey(key: key) { [weak self] down in self?.hotkeyChanged(down: down) }
+    private var key = Hotkey.Key.rightOption
+    private var hotkey: Hotkey?
     private var activity: Status? { didSet { refresh() } }
     private var status: Status { activity ?? sidecar.status }
 
@@ -70,8 +70,15 @@ enum Status: Equatable {
         item.menu = menu
         refresh()
         sidecar.onChange = { [weak self] in self?.refresh() }
+        sidecar.onHotkey = { [weak self] key in self?.startHotkey(key) }
         sidecar.start()
         AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
+    }
+
+    private func startHotkey(_ key: Hotkey.Key) {
+        self.key = key
+        let hotkey = Hotkey(key: key) { [weak self] down in self?.hotkeyChanged(down: down) }
+        self.hotkey = hotkey
         Task {
             while !hotkey.start() { try? await Task.sleep(for: .seconds(2)) }
             refresh()

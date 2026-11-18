@@ -4,15 +4,31 @@ import Foundation
     private(set) var status = Status.starting("Installing the speech engine…") { didSet { onChange() } }
     var onChange: () -> Void = {}
 
-    private let port = Config.port
+    private var port = 0
     private var base: URL { URL(string: "http://127.0.0.1:\(port)")! }
     private var process: Process?
     private var restarts = 0
     private var quitting = false
 
+    /// Called once the config has been read, with the hotkey it names.
+    var onHotkey: (Hotkey.Key) -> Void = { _ in }
+
     func start() {
         Task {
-            if let error = await Self.bootstrap() { status = .failed(error) } else { launch() }
+            let script = Bundle.main.resourceURL!.appending(path: "scripts/bootstrap.sh")
+            if let error = await Self.run(URL(filePath: "/bin/sh"), [script.path]).error {
+                return status = .failed(error)
+            }
+            let config = await Self.run(Config.dir.appending(path: "venv/bin/slopr-config"))
+            if let error = config.error { return status = .failed(error) }
+            do {
+                let (port, hotkey) = try Config.read(Data(config.output.utf8))
+                self.port = port
+                onHotkey(hotkey)
+                launch()
+            } catch {
+                status = .failed(error.localizedDescription)
+            }
         }
     }
 
@@ -44,21 +60,23 @@ import Foundation
         if process.isRunning { kill(process.processIdentifier, SIGKILL) }
     }
 
-    /// Returns the last line bootstrap.sh printed to stderr if it failed.
-    private nonisolated static func bootstrap() async -> String? {
-        let script = Bundle.main.resourceURL!.appending(path: "scripts/bootstrap.sh")
-        return await Task.detached {
+    /// Runs `executable` and returns its stdout, and the last line it printed to stderr if it failed.
+    private nonisolated static func run(_ executable: URL, _ arguments: [String] = []) async
+        -> (output: String, error: String?) {
+        await Task.detached {
             let process = Process()
-            process.executableURL = URL(filePath: "/bin/sh")
-            process.arguments = [script.path]
-            let stderr = Pipe()
+            process.executableURL = executable
+            process.arguments = arguments
+            let stdout = Pipe(), stderr = Pipe()
+            process.standardOutput = stdout
             process.standardError = stderr
-            process.standardOutput = FileHandle.nullDevice
-            do { try process.run() } catch { return error.localizedDescription }
-            let output = String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            do { try process.run() } catch { return ("", error.localizedDescription) }
+            // Both commands print little to stdout, so draining stderr first can't block on a full pipe.
+            let errors = String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            let output = String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
             process.waitUntilExit()
-            guard process.terminationStatus != 0 else { return nil }
-            return output.split(whereSeparator: \.isNewline).last.map(String.init) ?? "Setup failed"
+            guard process.terminationStatus != 0 else { return (output, nil) }
+            return (output, errors.split(whereSeparator: \.isNewline).last.map(String.init) ?? "Setup failed")
         }.value
     }
 

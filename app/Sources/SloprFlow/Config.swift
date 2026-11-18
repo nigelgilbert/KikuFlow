@@ -28,33 +28,13 @@ enum Config {
 
         """
 
-    private static var text: String { (try? String(contentsOf: file, encoding: .utf8)) ?? "" }
-    static var port: Int { port(in: text) }
-    static var hotkey: Hotkey.Key { hotkey(in: text) }
-
-    static func port(in toml: String) -> Int {
-        value("port", section: "server", in: toml).flatMap { Int($0) } ?? 48123
-    }
-
-    /// Right Option when the key is missing or not a known name.
-    static func hotkey(in toml: String) -> Hotkey.Key {
-        value("key", section: "hotkey", in: toml).flatMap { Hotkey.Key.named[$0] } ?? .rightOption
-    }
-
-    /// The value of `key` in `[section]`, without quotes, from the flat `key = value` subset the file uses.
-    private static func value(_ key: String, section: String, in toml: String) -> String? {
-        var current = ""
-        for line in toml.split(whereSeparator: \.isNewline) {
-            let line = line.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)[0]
-                .trimmingCharacters(in: .whitespaces)
-            if line.hasPrefix("[") {
-                current = line
-            } else if current == "[\(section)]" {
-                let kv = line.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
-                if kv.count == 2, kv[0] == key { return kv[1].trimmingCharacters(in: ["\"", "'"]) }
-            }
-        }
-        return nil
+    /// The port and hotkey from `slopr-config`'s JSON; Right Option when the key is not a known name.
+    static func read(_ json: Data) throws -> (port: Int, hotkey: Hotkey.Key) {
+        struct Values: Decodable { let port: Int; let hotkeyKey: String }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let values = try decoder.decode(Values.self, from: json)
+        return (values.port, Hotkey.Key.named[values.hotkeyKey] ?? .rightOption)
     }
 
     @MainActor static func open() { open(file, creatingWith: defaults) }
