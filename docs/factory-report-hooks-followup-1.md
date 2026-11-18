@@ -108,3 +108,68 @@ None.
 
 26 candidates, 10 kept (1 Fix, 9 Nit), 16 Wontfix, 0 Split. Adversary `astra`; 18 of 26
 verdicts agreed on the first call, and one exchange settled the other 8.
+
+No Fix item was split, low confidence or a taste call, so the list went to the fix pass
+without a human check.
+
+## Fix pass
+
+Pass base `6efb2520441ee53a790fe9907c10f614d355ae73`. The implementer folded in 9 of the 10
+items.
+
+| Item | Result | Commit |
+|---|---|---|
+| 1. `private.py` word boundary | Folded in | `97491f9` |
+| 2. "one dictation at a time" wording | Folded in | `97491f9` |
+| 3. `timed_log.py` single space | Folded in | `97491f9` |
+| 4. `verbatim.py` and the vocabulary fixes | Folded in | `97491f9` |
+| 5. Slow after-reply hooks hold up the next dictation | Folded in | `97491f9` |
+| 6. "keeps every logged dictation" | Folded in | `97491f9` |
+| 7. "one line each" in `README.md` | Folded in | `97491f9` |
+| 8. Unused import in the RECORDER source | Folded in | `af07d67` |
+| 9. Test rename | Folded in | `af07d67` |
+| 10. Wider punctuation strip in `verbatim.py` | Not folded in | |
+
+Pushback on item 10: the implementer declined it because nobody has shown either speech
+engine putting `:`, `;`, `!` or `?` after a spoken first word, so the change would guard
+against a case nobody has seen. It was the only low-confidence item. The lead agreed and it
+stays open.
+
+## End-to-end check
+
+Run after the fix pass, at `af07d67`, because the unit tests use fake models. The branch's
+sidecar was started on a spare port with the real Parakeet and cleanup models, in a temporary
+home directory so the user's own `log.txt` was not written (its size and modification time
+were the same before and after).
+
+- **No hook files.** Three spoken recordings made with `say` were posted to `/transcribe`.
+  Each reply came back with text, and `log.txt` then held exactly the three replies, in
+  order, one line each with one blank line between.
+- **A hook file with `on_output` and `on_done`.** After `/reload`, a fourth request's reply
+  was unchanged, the new log entry was the text `on_output` returned, and `on_done` received
+  that text with the entry already in the file.
+
+Not covered: the hotkey, the microphone and the paste, which need a person at the app.
+
+## Open items
+
+- **Overlapping requests and module variables.** A hook file that stores the transcript in
+  `on_transcribed` and reads it in `on_output` or `on_done` gets the later transcript if a
+  second request reaches the sidecar before the first one's after-reply work has run. The app
+  sends one dictation at a time and reaches this only when a request outlives its 120 s
+  timeout; any other client that overlaps requests reaches it every time. The examples now
+  state the app's behaviour instead of promising the order. Ordering it in `server.py` was
+  judged out of proportion (C2).
+- **`verbatim.py` punctuation** (item 10 above): left as `strip(",.")`.
+- **No test that a function named `on_logged` is ignored**, for the reason given under Work
+  items.
+- **Not checked by hand:** a dictation through the running app, and "Open Log…" showing it.
+
+No items were struck by the user.
+
+## Tests
+
+- Sidecar, from `sidecar/`: `uv run pytest -q && uv run ruff check . && uv run pyright` gives
+  58 passed, ruff clean, pyright 0 errors (48 tests at the base commit).
+- App: `app/test.sh` gives 7 tests passed. No Swift changed.
+- End-to-end with the real models: passed, as described above.
