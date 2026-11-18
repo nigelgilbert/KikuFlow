@@ -36,12 +36,11 @@ enum Config {
         value("port", section: "server", in: toml).flatMap { Int($0) } ?? 48123
     }
 
-    /// Right Option when the key is missing or not a known name.
     static func hotkey(in toml: String) -> Hotkey.Key {
         value("key", section: "hotkey", in: toml).flatMap { Hotkey.Key.named[$0] } ?? .rightOption
     }
 
-    /// The value of `key` in `[section]`, without quotes, from the flat `key = value` subset the file uses.
+    /// Reads only the flat `key = value` subset of TOML that the file uses.
     private static func value(_ key: String, section: String, in toml: String) -> String? {
         var current = ""
         for line in toml.split(whereSeparator: \.isNewline) {
@@ -61,13 +60,12 @@ enum Config {
     @MainActor static func openLog() { open(log, creatingWith: "") }
     @MainActor static func openErrors() { open(errors, creatingWith: "") }
 
-    /// Opens `url`, first writing `contents` to it if it is missing, in TextEdit if no app claims it.
     @MainActor private static func open(_ url: URL, creatingWith contents: String) {
         if !FileManager.default.fileExists(atPath: url.path) {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             try? contents.write(to: url, atomically: true, encoding: .utf8)
         }
-        if !NSWorkspace.shared.open(url) {
+        if !NSWorkspace.shared.open(url) {  // no app claims the file type
             NSWorkspace.shared.open([url], withApplicationAt: URL(filePath: "/System/Applications/TextEdit.app"),
                                     configuration: NSWorkspace.OpenConfiguration())
         }
