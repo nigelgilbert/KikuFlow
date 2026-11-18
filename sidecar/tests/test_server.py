@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from slopr_sidecar import lifecycle, server
+from slopr_sidecar import cleanup, lifecycle, server
 from slopr_sidecar.config import Config
 
 SPEECH = np.zeros(16_000, "<f4").tobytes()  # one second of raw float32 PCM
@@ -46,7 +46,7 @@ class Fakes:
             raise ValueError("unknown stt.engine 'vosk'")
         return lambda audio: RAW
 
-    def load_cleaner(self, model: str):
+    def load_cleaner(self, config: Config):
         self.cleaner_loads += 1
 
         def clean(raw: str) -> str:
@@ -132,6 +132,21 @@ def test_implausible_cleanup_falls_back_to_raw(fakes: Fakes, client: TestClient)
     assert client.post("/transcribe", content=SPEECH).json()["clean"] == RAW
 
 
+def test_empty_cleanup_falls_back_to_raw(fakes: Fakes, client: TestClient):
+    fakes.cleaned = ""
+    assert client.post("/transcribe", content=SPEECH).json()["clean"] == RAW
+
+
+@pytest.mark.parametrize(
+    ("cleaned", "clean"), [("Rendez-vous vendredi.", "Rendez-vous vendredi."), (" \n", RAW)]
+)
+def test_safety_check_off_keeps_any_non_empty_cleanup(fakes: Fakes, cleaned: str, clean: str):
+    fakes.config = Config(cleanup_safety_check=False)
+    fakes.cleaned = cleaned
+    with TestClient(server.app) as client:
+        assert client.post("/transcribe", content=SPEECH).json()["clean"] == clean
+
+
 def test_bad_audio_is_rejected(client: TestClient):
     assert client.post("/transcribe", content=b"RIFF").status_code == 400
 
@@ -154,6 +169,17 @@ def test_load_failure_is_reported(fakes: Fakes):
         assert health["ready"] is False
         assert health["error"] == "ValueError: unknown stt.engine 'vosk'"
         assert client.post("/transcribe", content=SPEECH).status_code == 503
+
+
+def test_missing_prompt_file_is_reported(
+    monkeypatch: pytest.MonkeyPatch, fakes: Fakes, tmp_path: Path
+):
+    monkeypatch.setattr(server, "load_cleaner", cleanup.load_cleaner)  # fails before loading
+    fakes.config = Config(cleanup_prompt_file=str(tmp_path / "nope.txt"))
+    with TestClient(server.app) as client:
+        wait_for_load()
+        error = client.get("/health").json()["error"]
+    assert error == f"FileNotFoundError: cleanup.prompt_file {tmp_path / 'nope.txt'} not found"
 
 
 def test_hooks_shape_the_text_around_cleanup(

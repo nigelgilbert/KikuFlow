@@ -8,7 +8,7 @@ from huggingface_hub import hf_hub_download
 from mlx_lm import generate, load
 from mlx_lm.sample_utils import make_sampler
 
-from .config import APP_DIR
+from .config import APP_DIR, Config
 
 type Cleaner = Callable[[str], str]
 type Messages = list[dict[str, str]]
@@ -71,11 +71,10 @@ def build_messages(model: str, prompt_file: str, placement: str) -> Callable[[st
     return lambda raw: [{"role": "system", "content": prompt}, {"role": "user", "content": raw}]
 
 
-def load_cleaner(
-    model_name: str, prompt_file: str = "", placement: str = "", safety_check: bool = True
-) -> Cleaner:
-    messages = build_messages(model_name, prompt_file, placement)
-    model, tokenizer = load(model_name)[:2]
+def load_cleaner(config: Config) -> Cleaner:
+    c = config
+    messages = build_messages(c.cleanup_model, c.cleanup_prompt_file, c.cleanup_placement)
+    model, tokenizer = load(c.cleanup_model)[:2]
     greedy = make_sampler(temp=0.0)
 
     def clean(raw: str) -> str:
@@ -85,7 +84,7 @@ def load_cleaner(
         # Output longer than twice the input fails is_plausible anyway; without the check, leave
         # room for prompts that expand the text but still stop a runaway generation.
         n = len(tokenizer.encode(raw))
-        max_tokens = 2 * n + 16 if safety_check else 4 * n + 256
+        max_tokens = 2 * n + 16 if c.cleanup_safety_check else 4 * n + 256
         return generate(model, tokenizer, prompt, max_tokens=max_tokens, sampler=greedy).strip()
 
     return clean

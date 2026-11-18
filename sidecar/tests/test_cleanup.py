@@ -11,6 +11,7 @@ from slopr_sidecar.cleanup import (
     is_plausible,
     load_cleaner,
 )
+from slopr_sidecar.config import Config
 
 RAW = "um so I think we should uh meet on Thursday no wait Friday at noon works better"
 
@@ -50,7 +51,7 @@ def test_safety_check_off_accepts_any_non_empty_output():
 
 def test_unsupported_model_fails_at_load():
     with pytest.raises(ValueError, match="set cleanup.prompt_file"):
-        load_cleaner("some/other-model")
+        load_cleaner(Config(cleanup_model="some/other-model"))
 
 
 @pytest.fixture

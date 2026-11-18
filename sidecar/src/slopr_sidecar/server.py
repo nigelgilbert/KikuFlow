@@ -49,7 +49,7 @@ def load_models() -> None:
     try:
         config = load_config()
         transcribe = load_transcriber(config.stt_engine, config.stt_model)
-        clean = load_cleaner(config.cleanup_model) if config.cleanup_enabled else None
+        clean = load_cleaner(config) if config.cleanup_enabled else None
         hooks = load_hooks(HOOK_DIR)
         # One throwaway pass each, so the first dictation doesn't pay for kernel compilation.
         transcribe(np.zeros(SAMPLE_RATE, np.float32))
@@ -100,7 +100,7 @@ def run(audio: np.ndarray, cleanup: bool) -> tuple[dict, Callable[[], None]]:
     text = fire(m.hooks, "on_transcribed", raw)
     if cleanup and m.clean and text:
         candidate = m.clean(text)
-        if accept(text, candidate, True):
+        if accept(text, candidate, m.config.cleanup_safety_check):
             text = candidate
     text = fire(m.hooks, "on_cleaned", text)
     cleaned = time.perf_counter()
