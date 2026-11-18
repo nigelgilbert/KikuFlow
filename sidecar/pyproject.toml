@@ -14,6 +14,7 @@ dependencies = [
 
 [project.scripts]
 slopr-sidecar = "slopr_sidecar.server:main"
+slopr-config = "slopr_sidecar.config:main"
 
 [dependency-groups]
 dev = ["httpx", "pyright", "pytest", "ruff"]

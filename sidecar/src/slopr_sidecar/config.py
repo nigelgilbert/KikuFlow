@@ -1,7 +1,8 @@
 """Config from ~/Library/Application Support/SloprFlow/config.toml, with the plan's defaults."""
 
+import json
 import tomllib
-from dataclasses import dataclass, fields
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 APP_DIR = Path.home() / "Library/Application Support/SloprFlow"
@@ -22,11 +23,12 @@ class Config:
     cleanup_prompt_role: str = ""
     cleanup_safety_check: bool = True
     port: int = 48123
+    hotkey_key: str = "right_option"
 
 
 def load_config(path: Path = APP_DIR / "config.toml") -> Config:
     data = tomllib.loads(path.read_text()) if path.exists() else {}
-    stt, cleanup, server = (data.get(k, {}) for k in ("stt", "cleanup", "server"))
+    stt, cleanup, server, hotkey = (data.get(k, {}) for k in ("stt", "cleanup", "server", "hotkey"))
     d = Config()
     engine = stt.get("engine", d.stt_engine)
     config = Config(
@@ -37,9 +39,15 @@ def load_config(path: Path = APP_DIR / "config.toml") -> Config:
         cleanup_prompt_role=cleanup.get("prompt_role", d.cleanup_prompt_role),
         cleanup_safety_check=cleanup.get("safety_check", d.cleanup_safety_check),
         port=server.get("port", d.port),
+        hotkey_key=hotkey.get("key", d.hotkey_key),
     )
     for f in fields(config):
         value, default = getattr(config, f.name), getattr(d, f.name)
         if type(value) is not type(default):
             raise TypeError(f"config {f.name} must be {type(default).__name__}, got {value!r}")
     return config
+
+
+def main() -> None:
+    """Print the config as one line of JSON, for the app; a bad config raises."""
+    print(json.dumps(asdict(load_config())))

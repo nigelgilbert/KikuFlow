@@ -1,8 +1,10 @@
+import json
+import tomllib
 from pathlib import Path
 
 import pytest
 
-from slopr_sidecar.config import Config, load_config
+from slopr_sidecar.config import Config, load_config, main
 
 
 def test_missing_file_gives_defaults(tmp_path: Path):
@@ -15,6 +17,7 @@ def test_missing_file_gives_defaults(tmp_path: Path):
         cleanup_prompt_role="",
         cleanup_safety_check=True,
         port=48123,
+        hotkey_key="right_option",
     )
 
 
@@ -64,3 +67,37 @@ def test_wrongly_typed_cleanup_prompt_keys_are_rejected(tmp_path: Path, line: st
     path.write_text(f"[cleanup]\n{line}\n")
     with pytest.raises(TypeError, match=error):
         load_config(path)
+
+
+def test_hotkey_key_is_read(tmp_path: Path):
+    path = tmp_path / "config.toml"
+    path.write_text('[hotkey]\nkey = "fn"\n')
+    assert load_config(path).hotkey_key == "fn"
+
+
+def test_wrongly_typed_hotkey_key_is_rejected(tmp_path: Path):
+    path = tmp_path / "config.toml"
+    path.write_text("[hotkey]\nkey = 3\n")
+    with pytest.raises(TypeError, match="hotkey_key must be str"):
+        load_config(path)
+
+
+def test_main_prints_the_config_as_one_line_of_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    path = tmp_path / "config.toml"
+    path.write_text('[server]\nport = 9000\n\n[hotkey]\nkey = "fn"\n')
+    monkeypatch.setattr(load_config, "__defaults__", (path,))
+    main()
+    lines = capsys.readouterr().out.splitlines()
+    assert len(lines) == 1
+    config = json.loads(lines[0])
+    assert (config["port"], config["hotkey_key"]) == (9000, "fn")
+
+
+def test_main_raises_on_invalid_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    path = tmp_path / "config.toml"
+    path.write_text("[server\nport = 9000\n")
+    monkeypatch.setattr(load_config, "__defaults__", (path,))
+    with pytest.raises(tomllib.TOMLDecodeError):
+        main()
