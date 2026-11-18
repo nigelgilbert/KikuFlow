@@ -34,7 +34,7 @@ Range `06c67c05d570205ca63247a66087fa54438da033..e501a6a1834ee28dc299d42f430daae
 2. **The `offline.py` example doesn't catch what the README's own network code raises** (C2)
    - Where: `examples/README.md:203-210`
    - Problem: the text says the file keeps a dropped connection from an uploading `on_done` hook out of `errors.txt`. With `urllib`, which `polish.py` uses, a refused connection raises `URLError`, not the builtin `ConnectionError`, so the entry is still recorded.
-   - Fix: a taste call. See the user's edit below.
+   - Fix (the user's choice): make the example work, with `isinstance(getattr(e, "reason", e), ConnectionError)`, and change the test to raise a `URLError`. Keep the prose and the example minimal.
    - Confidence: medium.
 
 ### Nit
