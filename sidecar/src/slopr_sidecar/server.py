@@ -41,7 +41,7 @@ executor = ThreadPoolExecutor(max_workers=1)
 class Models:
     config: Config
     transcribe: Transcriber
-    clean: Cleaner | None
+    clean: Cleaner
     hooks: Hooks
 
 
@@ -60,11 +60,10 @@ def load_models() -> None:
         hooks = load_hooks(HOOK_DIR)  # first, so a broken hook file fails in milliseconds
         config = load_config()
         transcribe = load_transcriber(config.stt_engine, config.stt_model)
-        clean = load_cleaner(config) if config.cleanup_enabled else None
+        clean = load_cleaner(config)
         # One throwaway pass each, so the first dictation doesn't pay for kernel compilation.
         transcribe(np.zeros(SAMPLE_RATE, np.float32))
-        if clean:
-            clean("Hello there.")
+        clean("Hello there.")
     except Exception as e:
         log.exception("model load failed")
         # Only a hook file's failure carries a label.
@@ -96,23 +95,23 @@ async def health() -> dict:
         "error": state.error,
         "stt_engine": m.config.stt_engine if m else None,
         "stt_model": m.config.stt_model if m else None,
-        "cleanup_model": m.config.cleanup_model if m and m.clean else None,
+        "cleanup_model": m.config.cleanup_model if m else None,
     }
 
 
-def run(audio: np.ndarray, cleanup: bool) -> tuple[dict, Callable[[], None]]:
+def run(audio: np.ndarray) -> tuple[dict, Callable[[], None]]:
     """The /transcribe reply, and what to run once it has been sent."""
     m = state.models
     if m is None:
         raise HTTPException(503, state.error or "models are loading")
     try:
-        reply = process(m, audio, cleanup)
+        reply = process(m, audio)
     except Exception as e:
         raise HTTPException(500, report(m.hooks, e)) from e
     return reply, partial(after_reply, m.hooks, reply["clean"])
 
 
-def process(m: Models, audio: np.ndarray, cleanup: bool) -> dict:
+def process(m: Models, audio: np.ndarray) -> dict:
     """Speech recognition, the cleanup model and the hooks around them."""
     start = time.perf_counter()
     # A tap shorter than 0.1 s holds no speech.
@@ -120,7 +119,7 @@ def process(m: Models, audio: np.ndarray, cleanup: bool) -> dict:
         raw = m.transcribe(audio) if len(audio) >= SAMPLE_RATE // 10 else ""
     transcribed = time.perf_counter()
     text = fire(m.hooks, "on_transcribed", raw)
-    if cleanup and m.clean and text:
+    if text:
         with labelled("cleanup model"):
             candidate = m.clean(text)
             if accept(text, candidate, m.config.cleanup_safety_check):
@@ -138,9 +137,9 @@ def process(m: Models, audio: np.ndarray, cleanup: bool) -> dict:
 
 
 def after_reply(hooks: Hooks, text: str) -> None:
-    """Fire on_output, log the text it leaves, then fire on_done; a failure stops the rest."""
+    """Fire on_sent, log the text it leaves, then fire on_done; a failure stops the rest."""
     try:
-        text = fire(hooks, "on_output", text)
+        text = fire(hooks, "on_sent", text)
         if not text:
             return
         with labelled("log write"):
@@ -155,12 +154,12 @@ async def on_executor[T](fn: Callable[[], T]) -> T:
 
 
 @app.post("/transcribe")
-async def transcribe(request: Request, tasks: BackgroundTasks, cleanup: bool = True) -> dict:
+async def transcribe(request: Request, tasks: BackgroundTasks) -> dict:
     try:
         audio = decode_audio(await request.body())
     except (ValueError, EOFError, wave.Error) as e:
         raise HTTPException(400, str(e) or type(e).__name__) from e
-    reply, after = await on_executor(partial(run, audio, cleanup))
+    reply, after = await on_executor(partial(run, audio))
     # Background tasks run after the response is sent.
     tasks.add_task(on_executor, after)
     return reply

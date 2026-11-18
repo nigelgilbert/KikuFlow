@@ -10,7 +10,6 @@ def test_missing_file_gives_defaults(tmp_path: Path):
     assert config == Config(
         stt_engine="parakeet",
         stt_model="mlx-community/parakeet-tdt-0.6b-v3",
-        cleanup_enabled=True,
         cleanup_model="ReFyneLabs/simplewords-dictation-cleanup-v3",
         cleanup_prompt_file="",
         cleanup_prompt_role="",
@@ -21,11 +20,11 @@ def test_missing_file_gives_defaults(tmp_path: Path):
 
 def test_partial_file_overrides_only_named_keys(tmp_path: Path):
     path = tmp_path / "config.toml"
-    path.write_text('[stt]\nengine = "whisper"\n\n[cleanup]\nenabled = false\n')
+    path.write_text('[stt]\nengine = "whisper"\n\n[cleanup]\nsafety_check = false\n')
     assert load_config(path) == Config(
         stt_engine="whisper",
         stt_model="mlx-community/whisper-large-v3-turbo",
-        cleanup_enabled=False,
+        cleanup_safety_check=False,
     )
 
 
@@ -37,8 +36,8 @@ def test_explicit_stt_model_wins_over_engine_default(tmp_path: Path):
 
 def test_wrongly_typed_value_is_rejected(tmp_path: Path):
     path = tmp_path / "config.toml"
-    path.write_text('[cleanup]\nenabled = "false"\n')
-    with pytest.raises(TypeError, match="cleanup_enabled must be bool"):
+    path.write_text('[cleanup]\nsafety_check = "false"\n')
+    with pytest.raises(TypeError, match="cleanup_safety_check must be bool"):
         load_config(path)
 
 

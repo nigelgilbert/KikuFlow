@@ -36,7 +36,6 @@ enum Status: Equatable {
 
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let statusLine = NSMenuItem()
-    private let cleanupItem = NSMenuItem(title: "Clean Up Text", action: #selector(toggleCleanup), keyEquivalent: "")
     private let accessibilityItem = NSMenuItem(title: "Allow Accessibility (Hotkey and Paste)…",
                                                action: #selector(allowAccessibility), keyEquivalent: "")
     private let microphoneItem = NSMenuItem(title: "Allow Microphone…", action: #selector(allowMicrophone),
@@ -51,11 +50,6 @@ enum Status: Equatable {
     private var activity: Status? { didSet { refresh() } }
     private var status: Status { activity ?? sidecar.status }
 
-    private var cleanup: Bool {
-        get { UserDefaults.standard.object(forKey: "cleanup") as? Bool ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: "cleanup") }
-    }
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         let menu = NSMenu()
         menu.delegate = self
@@ -66,7 +60,6 @@ enum Status: Equatable {
             accessibilityItem,
             microphoneItem,
             .separator(),
-            cleanupItem,
             NSMenuItem(title: "Open Log", action: #selector(openLog), keyEquivalent: ""),
             NSMenuItem(title: "Open Errors", action: #selector(openErrors), keyEquivalent: ""),
             NSMenuItem(title: "Open Config", action: #selector(openConfig), keyEquivalent: ","),
@@ -100,8 +93,6 @@ enum Status: Equatable {
         }
         statusLine.title = line.count > 30 ? line.prefix(29).trimmingCharacters(in: .whitespaces) + "…" : line
         if case .failed(let error) = status { statusLine.toolTip = error } else { statusLine.toolTip = nil }
-        cleanupItem.state = cleanup && sidecar.cleanupLoaded ? .on : .off
-        cleanupItem.isEnabled = sidecar.cleanupLoaded
         accessibilityItem.isHidden = AXIsProcessTrusted()
         microphoneItem.isHidden = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
     }
@@ -142,7 +133,7 @@ enum Status: Equatable {
         Task {
             defer { activity = nil }
             do {
-                let text = try await sidecar.transcribe(samples, cleanup: cleanup)
+                let text = try await sidecar.transcribe(samples)
                 if !text.isEmpty { paste(text) }
                 render(.hidden)
             } catch let error as Sidecar.Detail {
@@ -177,8 +168,6 @@ enum Status: Equatable {
     private func openSettings(_ pane: String) {
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)")!)
     }
-
-    @objc private func toggleCleanup() { cleanup.toggle(); refresh() }
 
     @objc private func openConfig() { Config.open() }
 

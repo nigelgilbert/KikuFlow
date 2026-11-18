@@ -2,7 +2,6 @@ import Foundation
 
 @MainActor final class Sidecar {
     private(set) var status = Status.starting("Installing the speech engine…") { didSet { onChange() } }
-    private(set) var cleanupLoaded = true
     var onChange: () -> Void = {}
 
     private let port = Config.port
@@ -17,9 +16,8 @@ import Foundation
         }
     }
 
-    func transcribe(_ samples: [Float], cleanup: Bool) async throws -> String {
-        var request = URLRequest(url: base.appending(path: "transcribe")
-            .appending(queryItems: [URLQueryItem(name: "cleanup", value: String(cleanup))]))
+    func transcribe(_ samples: [Float]) async throws -> String {
+        var request = URLRequest(url: base.appending(path: "transcribe"))
         request.httpMethod = "POST"
         request.httpBody = samples.withUnsafeBytes { Data($0) }
         request.timeoutInterval = 120
@@ -89,7 +87,6 @@ import Foundation
     private struct Health: Decodable {
         let ready: Bool
         let error: String?
-        let cleanupModel: String?
     }
 
     private func poll(_ process: Process) async {
@@ -100,7 +97,6 @@ import Foundation
                let health = try? decoder.decode(Health.self, from: data) {
                 if health.ready {
                     restarts = 0
-                    cleanupLoaded = health.cleanupModel != nil
                     status = .ready
                     return
                 }

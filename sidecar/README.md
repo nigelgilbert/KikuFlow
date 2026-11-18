@@ -41,16 +41,15 @@ Answers immediately, also while models load (first launch downloads several GB).
 - Load failed: `ready` false, `error` is a message (e.g. bad config, download failure, or a
   hook file that fails to import, as `hook file voice.py: ModuleNotFoundError: …`). Show it;
   the server stays up, fix the cause and call `/reload`.
-- `cleanup_model` is null when cleanup is disabled in config.
 
-### `POST /transcribe?cleanup=true|false`
+### `POST /transcribe`
 
 Body: one utterance, 16 kHz mono, either
 
 - raw PCM: float32 little-endian samples, no header (what AVAudioEngine gives you), or
 - a WAV file, 16-bit PCM. Detected by its `RIFF` header.
 
-`cleanup` defaults to `true`. Response:
+Response:
 
 ```json
 {"raw": "Um, so we should meet Thursday. No, Friday.",
@@ -58,32 +57,31 @@ Body: one utterance, 16 kHz mono, either
  "timings": {"stt_ms": 64, "cleanup_ms": 89}}
 ```
 
-`clean` equals `raw` when cleanup is off (query or config), when the cleanup output fails the
-safety check (or, with `safety_check = false`, is empty), or when nothing was said, unless a
-hook changed it. Audio under 0.1 s returns
-empty strings. Paste `clean`.
+`clean` equals `raw` when the cleanup output fails the safety check (or, with
+`safety_check = false`, is empty), or when nothing was said, unless a hook changed it. Audio
+under 0.1 s returns empty strings. Paste `clean`.
 
 Four lifecycle hooks take the text as a plain string and return the text for the next phase:
-`on_transcribed` after speech recognition (the cleanup model gets its result), `on_cleaned`
-after the cleanup stage, also when cleanup is off (`clean` is its result), then, once the
-response has been sent, `on_output` (the log gets its result), the log and `on_done`. Those
-three do not delay the reply, but they run on the model thread, so a slow hook holds up the next
-dictation. `raw` is always the speech recognition output. Once the text is empty, nothing
-further runs, the log included. The log is always written, by the sidecar itself: the last 100
-texts in `~/Library/Application Support/SloprFlow/log.txt`, one line each. Hook files are the
-`*.py` files in `~/Library/Application Support/SloprFlow/hooks/`. They load before the models,
-so `/reload` re-reads them, and one that fails to import fails the load. Examples:
-`examples/README.md`.
+`on_transcribed` after speech recognition (the cleanup model gets its result), `on_cleaned` after
+the cleanup stage (`clean` is its result), then, once the response has been sent, `on_sent` (the log
+gets its result), the log and `on_done`. Those three do not delay the reply, but they run on the
+model thread, so a slow hook holds up the next dictation. `raw` is always the speech recognition
+output. Once the text is empty, nothing further runs, the log included. The log is always written,
+by the sidecar itself: the last 100 texts in `~/Library/Application Support/SloprFlow/log.txt`, one
+line each. Hook files are the `*.py` files in `~/Library/Application Support/SloprFlow/hooks/`,
+which `app/bundle.sh` links to `hooks/` in the repo. They load before the models, so `/reload`
+re-reads them, and one that fails to import fails the load.
+Examples: `examples/README.md`.
 
-An exception from speech recognition, the cleanup model, a hook or the log write is not caught
-and carried on: nothing after it runs. The sidecar adds a note to it naming where it came from
-(`speech recognition`, `cleanup model`, `log write`, or the hook as `on_cleaned in voice.py:3`)
-and the default message is `on_cleaned in voice.py:3: KeyError: 'x'`, on one line. `on_error(e)`
-hooks get the exception, in filename order; the first that returns a string decides the
-message, `""` means none, and one that raises is skipped and recorded under its own default
+An exception from speech recognition, the cleanup model, a hook or the log write is not caught and
+carried on: nothing after it runs. The sidecar adds a note to it naming where it came from (`speech
+recognition`, `cleanup model`, `log write`, or the hook as `on_cleaned in voice.py:3`) and the
+default message is `on_cleaned in voice.py:3: KeyError: 'x'`, on one line. A hook that returns
+neither a string nor `None` raises `TypeError: on_cleaned returned dict, not str or None`.
+`on_error(e)` hooks get the exception, in filename order; the first that returns a string decides
+the message, `""` means none, and one that raises is skipped and recorded under its own default
 message. The message goes into `~/Library/Application Support/SloprFlow/errors.txt`, the last 50
-with the time in front, and the traceback to stderr. A failure after the response goes nowhere
-else.
+with the time in front, and the traceback to stderr. A failure after the response goes nowhere else.
 
 Errors: `400` malformed audio; `500` a failure before the response, with the message as
 `detail` (`""` when `on_error` returned `""`); `503` models not loaded (`detail` holds the
@@ -104,7 +102,6 @@ engine = "parakeet"   # or "whisper" (mlx-whisper)
 model = "mlx-community/parakeet-tdt-0.6b-v3"   # with "whisper": "mlx-community/whisper-large-v3-turbo"
 
 [cleanup]
-enabled = true
 model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
 # or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
 prompt_file = ""      # a text file whose contents replace the model's built-in prompt
