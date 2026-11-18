@@ -12,6 +12,9 @@ dependencies = [
     "uvicorn",
 ]
 
+[project.scripts]
+slopr-sidecar = "slopr_sidecar.server:main"
+
 [dependency-groups]
 dev = ["httpx", "pyright", "pytest", "ruff"]
 
