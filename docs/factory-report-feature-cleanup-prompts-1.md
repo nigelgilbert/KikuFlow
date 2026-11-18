@@ -58,3 +58,19 @@ None.
 ### Counts
 
 10 candidates, 1 kept (0 fix, 1 nit), 9 wontfix (1 of them split). Adversary `sol`, 1 exchange.
+
+## Fix pass 1
+
+| Item | Result |
+|---|---|
+| Nit 1 (no system role) | Taken as proposed, no pushback: `520e7e3`. Both READMEs now say to set `placement = "user"` for templates without a system role, and the touched paragraphs are rewrapped. |
+
+## Open items
+
+- C4 (split): a directory set as `prompt_file` is reported as "not found". Left as wontfix by the filter agent; Sol would make it a nit.
+- From the implementer: a prompt file that isn't valid UTF-8 raises a `UnicodeDecodeError` that doesn't name the path, and `enable_thinking=False` is passed to every chat template without being checked against other models.
+- Out of scope by decision: any `[stt]` prompt, vocabulary or Parakeet booster.
+
+## Tests
+
+`cd sidecar && uv run pytest -q && uv run ruff check . && uv run pyright`: 80 passed, ruff clean, pyright 0 errors. `app/test.sh`: 7 tests passed.
