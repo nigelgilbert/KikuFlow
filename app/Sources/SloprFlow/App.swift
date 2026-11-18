@@ -38,6 +38,7 @@ enum Status: Equatable {
     private let cleanupItem = NSMenuItem(title: "Clean Up Text", action: #selector(toggleCleanup), keyEquivalent: "")
 
     private let sidecar = Sidecar()
+    private let recorder = Recorder()
     private lazy var hotkey = Hotkey { [weak self] down in self?.hotkeyChanged(down: down) }
     private var activity: Status? { didSet { refresh() } }
     private var status: Status { activity ?? sidecar.status }
@@ -82,7 +83,13 @@ enum Status: Equatable {
     }
 
     private func hotkeyChanged(down: Bool) {
-        activity = down ? .listening : nil
+        if down {
+            guard (try? recorder.start(onLevel: { _ in })) != nil else { return }
+            activity = .listening
+        } else if activity == .listening {
+            _ = recorder.stop()
+            activity = nil
+        }
     }
 
     @objc private func toggleCleanup() { cleanup.toggle(); refresh() }
@@ -98,4 +105,10 @@ enum Status: Equatable {
         NSApp.activate()
         NSApp.orderFrontStandardAboutPanel(options: [.credits: NSAttributedString(string: credits)])
     }
+}
+
+/// An error carrying a message for the user.
+struct Failure: LocalizedError {
+    let errorDescription: String?
+    init(_ message: String) { errorDescription = message }
 }
