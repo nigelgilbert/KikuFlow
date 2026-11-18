@@ -40,7 +40,7 @@ dictation. `on_output` cannot change what is pasted.
 
 A failure is loud. When speech recognition, the cleanup model, a hook or the log write raises,
 nothing after it runs, and the message, such as `on_cleaned in voice.py:3: KeyError: 'x'`, goes
-into `~/Library/Application Support/SloprFlow/errors.txt` ("Open Errors…" in the menu), which
+into `~/Library/Application Support/SloprFlow/errors.txt` ("Open Errors" in the menu), which
 keeps the last 50 with the time in front. Before the reply (speech recognition,
 `on_transcribed`, the cleanup model, `on_cleaned`) nothing is pasted and the HUD shows the
 message. After it (`on_output`, the log, `on_done`) the text is already pasted and the rest is
@@ -113,7 +113,7 @@ def on_cleaned(t):
 ## What goes in the log
 
 The app always keeps your last 100 dictations in
-`~/Library/Application Support/SloprFlow/log.txt` ("Open Log…" in the menu), one line each. An
+`~/Library/Application Support/SloprFlow/log.txt` ("Open Log" in the menu), one line each. An
 entry is the text that was output, unless an `on_output` hook returns something else.
 
 `raw_log.py` logs what you said instead of the cleaned text:
