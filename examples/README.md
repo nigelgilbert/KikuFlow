@@ -3,7 +3,7 @@
 Slopr Flow runs your Python at three points of every dictation:
 
 ```
-mic → transcribe → [on_transcribed] → cleanup model → [on_cleaned] → paste → log → [on_logged]
+mic → transcribe → [on_transcribed] → cleanup model → [on_cleaned] → paste → log → [on_done]
 ```
 
 A **hook** is a function named after one of those points. A **hook file** is a `.py` file that
@@ -13,7 +13,7 @@ gets the text as a plain string `t`:
 ```
 def on_transcribed(t) -> str | None   # after speech recognition, before the cleanup model
 def on_cleaned(t) -> str | None       # after the cleanup stage, also when cleanup is off
-def on_logged(t) -> None              # after the text has been sent to be pasted
+def on_done(t) -> None                # after the text has been sent to be pasted
 ```
 
 A hook that returns a string replaces the text; returning `None` leaves it alone. Returning `""`
@@ -91,7 +91,7 @@ from datetime import datetime
 from slopr_sidecar.config import APP_DIR
 
 
-def on_logged(t):
+def on_done(t):
     with (APP_DIR / "archive.txt").open("a", encoding="utf-8") as f:
         f.write(f"{datetime.now():%Y-%m-%d %H:%M}  {' '.join(t.split())}\n")
 ```

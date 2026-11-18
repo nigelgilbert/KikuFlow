@@ -1,4 +1,4 @@
-"""The on_transcribed, on_cleaned and on_logged hooks of plain .py files, and the log."""
+"""The on_transcribed, on_cleaned and on_done hooks of plain .py files, and the log."""
 
 import logging
 import runpy
@@ -9,7 +9,7 @@ from .config import APP_DIR
 
 log = logging.getLogger("uvicorn.error")
 
-POINTS = ("on_transcribed", "on_cleaned", "on_logged")
+POINTS = ("on_transcribed", "on_cleaned", "on_done")
 HOOK_DIR = APP_DIR / "hooks"
 LOG = APP_DIR / "log.txt"
 
@@ -41,7 +41,7 @@ def fire(hooks: Hooks, point: str, text: str) -> str:
         except Exception:
             log.exception("%s hook failed", point)
             continue
-        if point != "on_logged" and isinstance(new, str):  # on_logged's return is ignored
+        if point != "on_done" and isinstance(new, str):  # on_done's return is ignored
             text = new
     return text
 

@@ -25,14 +25,14 @@ def record(point, t):
 
 def on_transcribed(t): record("on_transcribed", t)
 def on_cleaned(t): record("on_cleaned", t)
-def on_logged(t): record("on_logged", t)
+def on_done(t): record("on_done", t)
 """
 
-# A hook file that keeps a copy of the log as it stands when on_logged fires.
+# A hook file that keeps a copy of the log as it stands when on_done fires.
 LOG_READER = """
 from pathlib import Path
 
-def on_logged(t):
+def on_done(t):
     here = Path(__file__).parent
     (here / "seen.txt").write_text((here.parent / "log.txt").read_text())
 """
@@ -179,7 +179,7 @@ def test_hooks_shape_the_text_around_cleanup(fakes: Fakes, hooks: Path, client: 
     assert [c[:2] for c in calls(hooks)] == [
         ["on_transcribed", "please call Anna tomorrow"],
         ["on_cleaned", "Please call Anna tomorrow.!"],
-        ["on_logged", "Please call Anna tomorrow.!"],
+        ["on_done", "Please call Anna tomorrow.!"],
     ]
 
 
@@ -206,18 +206,18 @@ def test_hook_returning_empty_text_stops_the_pipeline(
     assert calls(hooks) == []
 
 
-def test_run_leaves_on_logged_for_after_the_reply(hooks: Path, client: TestClient):
+def test_run_leaves_on_done_for_after_the_reply(hooks: Path, client: TestClient):
     wait_for_load()
     audio = np.zeros(16_000, "<f4")
     _, after = server.executor.submit(server.run, audio, True).result()
     assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned"]
     after()
-    assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", "on_logged"]
+    assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", "on_done"]
 
 
-def test_on_logged_fires_once_on_the_model_executor(hooks: Path, client: TestClient):
+def test_on_done_fires_once_on_the_model_executor(hooks: Path, client: TestClient):
     client.post("/transcribe", content=SPEECH)
-    [logged] = [c for c in calls(hooks) if c[0] == "on_logged"]
+    [logged] = [c for c in calls(hooks) if c[0] == "on_done"]
     assert logged[2] == server.executor.submit(lambda: threading.current_thread().name).result()
 
 
@@ -229,7 +229,7 @@ def test_hook_file_failing_to_load_leaves_health_alone(hooks: Path, client: Test
     assert (health["ready"], health["error"]) == (True, None)
 
 
-def test_reply_is_sent_before_on_logged(hooks: Path, client: TestClient):
+def test_reply_is_sent_before_on_done(hooks: Path, client: TestClient):
     wait_for_load()
     at_reply = []
 
@@ -243,7 +243,7 @@ def test_reply_is_sent_before_on_logged(hooks: Path, client: TestClient):
     path = {"type": "http", "method": "POST", "path": "/transcribe", "query_string": b""}
     asyncio.run(server.app({**path, "headers": []}, receive, send))
     assert at_reply == [["on_transcribed", "on_cleaned"]]
-    assert calls(hooks)[-1][0] == "on_logged"
+    assert calls(hooks)[-1][0] == "on_done"
 
 
 def test_log_is_written_without_hook_files(hooks: Path, tmp_path: Path, client: TestClient):
@@ -258,17 +258,17 @@ def test_log_py_is_just_another_hook_file(hooks: Path, tmp_path: Path, client: T
     client.post("/reload")
     client.post("/transcribe", content=SPEECH)
     assert (tmp_path / "log.txt").read_text() == "We should meet on Friday."
-    assert calls(hooks)[-1][0] == "on_logged"
+    assert calls(hooks)[-1][0] == "on_done"
 
 
-def test_on_logged_fires_after_the_entry_is_written(hooks: Path, client: TestClient):
+def test_on_done_fires_after_the_entry_is_written(hooks: Path, client: TestClient):
     (hooks / "reader.py").write_text(LOG_READER)
     client.post("/reload")
     client.post("/transcribe", content=SPEECH)
     assert (hooks / "seen.txt").read_text() == "We should meet on Friday."
 
 
-def test_failed_log_write_is_logged_and_on_logged_still_fires(
+def test_failed_log_write_is_logged_and_on_done_still_fires(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     hooks: Path,
@@ -278,4 +278,4 @@ def test_failed_log_write_is_logged_and_on_logged_still_fires(
     monkeypatch.setattr(lifecycle, "LOG", tmp_path / "missing/log.txt")
     client.post("/transcribe", content=SPEECH)
     assert "log write failed" in caplog.text
-    assert calls(hooks)[-1][0] == "on_logged"
+    assert calls(hooks)[-1][0] == "on_done"

@@ -63,7 +63,7 @@ empty strings. Paste `clean`.
 
 Lifecycle hooks run on the text in between: `on_transcribed` after speech recognition (the
 cleanup model gets its result), `on_cleaned` after the cleanup stage, also when cleanup is off,
-and `on_logged` after the response has been sent, so it does not delay that reply (it runs on
+and `on_done` after the response has been sent, so it does not delay that reply (it runs on
 the model thread, so a slow one holds up the next dictation). `raw` is always the speech
 recognition output. Once the text is empty, no further hook runs. Hook files are the
 `*.py` files in `src/slopr_sidecar/hooks/` (built-in) and in

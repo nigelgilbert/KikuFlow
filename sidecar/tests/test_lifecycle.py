@@ -26,7 +26,7 @@ def on_cleaned(t):
 
 def test_loads_hooks_in_filename_order(tmp_path: Path):
     write(tmp_path / "b.py", "def on_cleaned(t): return t + ' b'")
-    write(tmp_path / "a.py", "def on_cleaned(t): return t + ' a'\ndef on_logged(t): pass")
+    write(tmp_path / "a.py", "def on_cleaned(t): return t + ' a'\ndef on_done(t): pass")
     hooks = load_hooks(tmp_path)
     assert [len(hooks[p]) for p in POINTS] == [0, 2, 1]
     assert fire(hooks, "on_cleaned", "hello") == "hello a b"
@@ -40,9 +40,9 @@ def test_file_failing_to_import_is_logged_and_skipped(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ):
     write(tmp_path / "a.py", "import nonexistent_module")
-    write(tmp_path / "b.py", "def on_logged(t): pass")
+    write(tmp_path / "b.py", "def on_done(t): pass")
     hooks = load_hooks(tmp_path)
-    assert len(hooks["on_logged"]) == 1
+    assert len(hooks["on_done"]) == 1
     assert "a.py failed to load" in caplog.text
     assert "ModuleNotFoundError" in caplog.text
 
@@ -59,10 +59,10 @@ def test_hook_file_keeps_state_between_its_hooks(tmp_path: Path):
     assert fire(hooks, "on_cleaned", "Hello.") == "um hello"
 
 
-def test_on_logged_return_values_are_ignored():
+def test_on_done_return_values_are_ignored():
     calls = []
-    hooks = {"on_logged": [lambda t: "", calls.append]}
-    fire(hooks, "on_logged", "hello")
+    hooks = {"on_done": [lambda t: "", calls.append]}
+    fire(hooks, "on_done", "hello")
     assert calls == ["hello"]
 
 

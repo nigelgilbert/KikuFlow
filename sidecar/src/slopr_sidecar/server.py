@@ -116,14 +116,14 @@ def run(audio: np.ndarray, cleanup: bool) -> tuple[dict, Callable[[], None]]:
 
 
 def after_reply(hooks: Hooks, text: str) -> None:
-    """Write the log entry, then fire on_logged."""
+    """Write the log entry, then fire on_done."""
     if not text:
         return
     try:
         write_log(text)
     except Exception:
         log.exception("log write failed")
-    fire(hooks, "on_logged", text)
+    fire(hooks, "on_done", text)
 
 
 async def on_executor[T](fn: Callable[[], T]) -> T:
