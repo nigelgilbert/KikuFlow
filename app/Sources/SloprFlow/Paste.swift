@@ -1,8 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// Pastes `text` into the focused app, then puts the previous clipboard back. If the keystroke
-/// can't be sent, `text` stays on the clipboard.
 @MainActor func paste(_ text: String) {
     let pasteboard = NSPasteboard.general
     let saved = pasteboard.pasteboardItems?.map { item in
@@ -16,15 +14,15 @@ import Carbon.HIToolbox
     guard AXIsProcessTrusted(),
           let down = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: true),
           let up = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: false)
-    else { return }
+    else { return }  // the text stays on the clipboard
     down.flags = .maskCommand
     up.flags = .maskCommand
     down.post(tap: .cghidEventTap)
     up.post(tap: .cghidEventTap)
 
     let ours = pasteboard.changeCount
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-        let pasteboard = NSPasteboard.general
+    Task {
+        try? await Task.sleep(for: .seconds(0.5))
         guard pasteboard.changeCount == ours else { return }
         pasteboard.clearContents()
         pasteboard.writeObjects(saved.map { pairs in

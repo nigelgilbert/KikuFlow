@@ -44,7 +44,7 @@ import Foundation
         if process.isRunning { kill(process.processIdentifier, SIGKILL) }
     }
 
-    /// Returns the last line bootstrap.sh printed to stderr if it failed.
+    /// What bootstrap.sh printed to stderr, if it failed.
     private nonisolated static func bootstrap() async -> String? {
         let script = Bundle.main.resourceURL!.appending(path: "scripts/bootstrap.sh")
         return await Task.detached {
@@ -56,9 +56,10 @@ import Foundation
             process.standardOutput = FileHandle.nullDevice
             do { try process.run() } catch { return error.localizedDescription }
             let output = String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             process.waitUntilExit()
             guard process.terminationStatus != 0 else { return nil }
-            return output.split(whereSeparator: \.isNewline).last.map(String.init) ?? "Setup failed"
+            return output.isEmpty ? "Setup failed" : output
         }.value
     }
 
@@ -90,11 +91,9 @@ import Foundation
     }
 
     private func poll(_ process: Process) async {
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         while process.isRunning {
             if let (data, _) = try? await URLSession.shared.data(from: base.appending(path: "health")),
-               let health = try? decoder.decode(Health.self, from: data) {
+               let health = try? JSONDecoder().decode(Health.self, from: data) {
                 if health.ready {
                     restarts = 0
                     status = .ready
