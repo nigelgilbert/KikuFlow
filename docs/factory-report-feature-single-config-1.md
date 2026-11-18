@@ -103,6 +103,17 @@ Pass base `8f2f29e9e140ab68c121276a4fe20457ac8b886f`.
 - Nit 2: config errors are cut to 30 characters in the menu line.
 - Nit 3: "the sidecar itself ignores them" in `sidecar/README.md`.
 
+## After the run
+
+The user asked for both nits to be settled.
+
+- Nit 3 is fixed: the sentence now says the sidecar "doesn't use" the port and hotkey.
+- Nit 2 is fixed at the source, not in the menu. `slopr-config` now exits with one short line
+  for a config it can't read, such as `config port must be int, got '9000'` or
+  `config line 3: Expected '=' after a key in a key/value pair`, so the key or the line number
+  fits in the menu's 30 characters. This replaces the plan's "a failure is not caught" for
+  those two errors. Any other failure still gives a traceback.
+
 ## Items dropped
 
 None.
