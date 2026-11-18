@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from slopr_sidecar import cleanup, lifecycle, server
-from slopr_sidecar.config import Config
+from slopr_sidecar.config import Config, load_config
 
 SPEECH = np.zeros(16_000, "<f4").tobytes()  # one second of raw float32 PCM
 RAW = "um so we should uh meet on Friday"
@@ -132,18 +132,11 @@ def test_transcribe_with_cleanup(client: TestClient):
     assert set(body["timings"]) == {"stt_ms", "cleanup_ms"}
 
 
-def test_transcribe_with_cleanup_off_by_query(client: TestClient):
-    body = client.post("/transcribe?cleanup=false", content=SPEECH).json()
-    assert body["clean"] == body["raw"] == RAW
-
-
-def test_cleanup_off_by_config_does_not_load_the_model(fakes: Fakes):
-    fakes.config = Config(cleanup_enabled=False)
+def test_leftover_cleanup_enabled_is_ignored(fakes: Fakes, tmp_path: Path):
+    (tmp_path / "config.toml").write_text("[cleanup]\nenabled = false\n")
+    fakes.config = load_config(tmp_path / "config.toml")
     with TestClient(server.app) as client:
-        body = client.post("/transcribe", content=SPEECH).json()
-        assert body["clean"] == body["raw"] == RAW
-        assert client.get("/health").json()["cleanup_model"] is None
-    assert fakes.cleaner_loads == 0
+        assert client.post("/transcribe", content=SPEECH).json()["clean"] == fakes.cleaned
 
 
 def test_implausible_cleanup_falls_back_to_raw(fakes: Fakes, client: TestClient):
@@ -227,14 +220,6 @@ def test_hooks_shape_the_text_around_cleanup(
     assert (tmp_path / "log.txt").read_text() == "Please call Anna tomorrow.!"
 
 
-@pytest.mark.parametrize(("query", "enabled"), [("?cleanup=false", True), ("", False)])
-def test_on_cleaned_fires_with_cleanup_off(fakes: Fakes, hooks: Path, query: str, enabled: bool):
-    fakes.config = Config(cleanup_enabled=enabled)
-    with TestClient(server.app) as client:
-        assert client.post("/transcribe" + query, content=SPEECH).json()["clean"] == RAW
-    assert ["on_cleaned", RAW] in [c[:2] for c in calls(hooks)]
-
-
 def test_empty_transcription_fires_no_hooks(hooks: Path, client: TestClient):
     assert client.post("/transcribe", content=b"").json()["clean"] == ""
     assert calls(hooks) == []
@@ -253,7 +238,7 @@ def test_hook_returning_empty_text_stops_the_pipeline(
 def test_run_leaves_on_sent_and_on_done_for_after_the_reply(hooks: Path, client: TestClient):
     wait_for_load()
     audio = np.zeros(16_000, "<f4")
-    _, after = server.executor.submit(server.run, audio, True).result()
+    _, after = server.executor.submit(server.run, audio).result()
     assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned"]
     after()
     assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", "on_sent", "on_done"]
@@ -311,9 +296,7 @@ def test_log_py_is_just_another_hook_file(hooks: Path, tmp_path: Path, client: T
     assert calls(hooks)[-1][0] == "on_done"
 
 
-def test_on_sent_fires_before_the_log_is_written_and_on_done_after(
-    hooks: Path, client: TestClient
-):
+def test_on_sent_fires_before_the_log_is_written_and_on_done_after(hooks: Path, client: TestClient):
     client.post("/transcribe", content=SPEECH)
     assert [[c[0], c[3]] for c in calls(hooks)][-2:] == [
         ["on_sent", "False"],
