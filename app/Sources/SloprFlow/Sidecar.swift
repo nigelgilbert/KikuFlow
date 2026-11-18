@@ -74,7 +74,7 @@ import Foundation
         guard !quitting else { return }
         let delay = 1 << min(restarts, 5)
         restarts += 1
-        status = .starting("Engine restarting in \(delay) s…")
+        status = .starting("Engine stopped, retry in \(delay) s…")
         Task {
             try? await Task.sleep(for: .seconds(delay))
             if !quitting { launch() }
