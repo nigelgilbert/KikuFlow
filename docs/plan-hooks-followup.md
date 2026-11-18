@@ -185,6 +185,8 @@ Acceptance:
   A paste that fails is when the log is most useful.
 - No off switch or config for the log. `on_output` returning `""` is the way to keep an entry
   out.
+- Where an acceptance criterion says "docs", it means `README.md`, `sidecar/README.md` and
+  `examples/README.md`. Files under `docs/`, this plan included, keep the old names.
 - No context passed to hooks beyond the text. If hooks later need more, the sidecar offers
   functions to call; it does not add arguments or attributes.
 - No new dependencies.
