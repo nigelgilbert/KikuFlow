@@ -108,11 +108,13 @@ model load (so `/reload` picks up edits); missing or empty is a load error namin
 `placement`: `"system"` sends the prompt verbatim as the system turn and the transcript as the
 user turn; `"user"` sends one user turn, the stripped prompt, a blank line, the transcript; any
 other value is a load error. Empty means the built-in model's placement (ReFyne `user`, Utter
-`system`), or `system` for any other model. Any mlx-lm chat model works with `prompt_file`; an
-unknown model without it is a load error. The built-in models are fine-tunes trained on one
-exact prompt, so another prompt likely cleans up worse. `safety_check = false` uses any
-non-empty output and raises the generation cap from 2x to 4x the input tokens (plus 256),
-which a prompt that is not a cleanup (translate, summarize, email) needs.
+`system`), or `system` for any other model. A model whose chat template has no system role
+(Gemma 2, for one) fails to load with the template's error; set `placement = "user"`. Any mlx-lm
+chat model works with `prompt_file`; an unknown model without it is a load error. The built-in
+models are fine-tunes trained on one exact prompt, so another prompt likely cleans up worse.
+`safety_check = false` uses any non-empty output and raises the generation cap from 2x to 4x the
+input tokens (plus 256), which a prompt that is not a cleanup (translate, summarize, email)
+needs.
 
 The default cleanup model is a gated Hugging Face repo: it downloads only after the user
 accepts its terms on huggingface.co and logs in (`HF_TOKEN` in the sidecar's environment, or
