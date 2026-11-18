@@ -1,39 +1,29 @@
-"""Lifecycle hooks: the on_transcribed, on_cleaned and on_logged functions of plain .py files."""
+"""The on_* hooks of plain .py files, and the log."""
 
 import logging
 import runpy
-from collections.abc import Callable, Iterable
-from dataclasses import dataclass
-from datetime import datetime
+from collections.abc import Callable
 from pathlib import Path
 
 from .config import APP_DIR
 
 log = logging.getLogger("uvicorn.error")
 
-POINTS = ("on_transcribed", "on_cleaned", "on_logged")
-HOOK_DIRS = (Path(__file__).with_name("hooks"), APP_DIR / "hooks")
+POINTS = ("on_transcribed", "on_cleaned", "on_output", "on_done")
+HOOK_DIR = APP_DIR / "hooks"
+LOG = APP_DIR / "log.txt"
+
+type Hooks = dict[str, list[Callable[[str], str | None]]]
 
 
-@dataclass
-class Utterance:
-    at: datetime  # when the audio arrived, local time with its zone
-    raw: str  # straight from the STT, never changes
-    text: str  # what will be pasted; hooks replace this
-
-
-type Hooks = dict[str, list[Callable[[Utterance], str | None]]]
-
-
-def load_hooks(dirs: Iterable[Path]) -> Hooks:
-    """The hooks of every *.py in `dirs`, in filename order; a later dir's file replaces a name."""
-    files = {path.name: path for d in dirs for path in d.glob("*.py")}
+def load_hooks(directory: Path) -> Hooks:
+    """The hooks of every *.py in `directory`, in filename order."""
     hooks: Hooks = {point: [] for point in POINTS}
-    for name in sorted(files):
+    for path in sorted(directory.glob("*.py")):
         try:
-            names = runpy.run_path(str(files[name]))
+            names = runpy.run_path(str(path))
         except Exception:
-            log.exception("hook file %s failed to load", files[name])
+            log.exception("hook file %s failed to load", path)
             continue
         for point in POINTS:
             if point in names:
@@ -41,15 +31,22 @@ def load_hooks(dirs: Iterable[Path]) -> Hooks:
     return hooks
 
 
-def fire(hooks: Hooks, point: str, u: Utterance) -> None:
+def fire(hooks: Hooks, point: str, text: str) -> str:
     """Run the hooks for `point` in order while there is text; a returned str replaces it."""
     for hook in hooks[point]:
-        if not u.text:
-            return
+        if not text:
+            break
         try:
-            text = hook(u)
+            new = hook(text)
         except Exception:
             log.exception("%s hook failed", point)
             continue
-        if point != "on_logged" and isinstance(text, str):  # on_logged's return is ignored
-            u.text = text
+        if point != "on_done" and isinstance(new, str):  # on_done's return is ignored
+            text = new
+    return text
+
+
+def write_log(text: str) -> None:
+    """Append `text` to the log as one line, keeping the last 100."""
+    old = LOG.read_text("utf-8").strip().split("\n\n") if LOG.exists() else []
+    LOG.write_text("\n\n".join([*filter(None, old), " ".join(text.split())][-100:]), "utf-8")

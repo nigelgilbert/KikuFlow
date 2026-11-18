@@ -1,32 +1,33 @@
 import asyncio
 import threading
 from collections.abc import Iterator
-from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from slopr_sidecar import config, server
+from slopr_sidecar import lifecycle, server
 from slopr_sidecar.config import Config
 
 SPEECH = np.zeros(16_000, "<f4").tobytes()  # one second of raw float32 PCM
 RAW = "um so we should uh meet on Friday"
 
-# A hook file that appends each call to calls.txt next to it, after the other hook files.
+# A hook file that appends each call, and whether log.txt exists yet, to calls.txt next to it,
+# after the other hook files.
 RECORDER = """
-import asyncio
 import threading
 from pathlib import Path
 
-def record(point, u):
+def record(point, t):
+    logged = Path(__file__).parents[1].joinpath("log.txt").exists()
     with Path(__file__).with_name("calls.txt").open("a") as f:
-        print(point, u.text, threading.current_thread().name, sep="|", file=f)
+        print(point, t, threading.current_thread().name, logged, sep="|", file=f)
 
-def on_transcribed(u): record("on_transcribed", u)
-def on_cleaned(u): record("on_cleaned", u)
-def on_logged(u): record("on_logged", u)
+def on_transcribed(t): record("on_transcribed", t)
+def on_cleaned(t): record("on_cleaned", t)
+def on_output(t): record("on_output", t)
+def on_done(t): record("on_done", t)
 """
 
 
@@ -70,10 +71,10 @@ def calls(hooks: Path) -> list[list[str]]:
 
 @pytest.fixture
 def fakes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, hooks: Path) -> Fakes:
-    """Fake models, and temporary stand-ins for the app directory and both hook directories."""
+    """Fake models, and temporary stand-ins for the hook directory and the log."""
     fakes = Fakes()
-    monkeypatch.setattr(config, "APP_DIR", tmp_path)
-    monkeypatch.setattr(server, "HOOK_DIRS", (tmp_path / "builtin", hooks))
+    monkeypatch.setattr(server, "HOOK_DIR", hooks)
+    monkeypatch.setattr(lifecycle, "LOG", tmp_path / "log.txt")
     monkeypatch.setattr(server, "load_config", lambda: fakes.config)
     monkeypatch.setattr(server, "load_transcriber", fakes.load_transcriber)
     monkeypatch.setattr(server, "load_cleaner", fakes.load_cleaner)
@@ -155,10 +156,12 @@ def test_load_failure_is_reported(fakes: Fakes):
         assert client.post("/transcribe", content=SPEECH).status_code == 503
 
 
-def test_hooks_shape_the_text_around_cleanup(fakes: Fakes, hooks: Path, client: TestClient):
+def test_hooks_shape_the_text_around_cleanup(
+    fakes: Fakes, hooks: Path, tmp_path: Path, client: TestClient
+):
     (hooks / "a.py").write_text(
-        "def on_transcribed(u): return 'please call Anna tomorrow'\n"
-        "def on_cleaned(u): return u.text + '!'\n"
+        "def on_transcribed(t): return 'please call Anna tomorrow'\n"
+        "def on_cleaned(t): return t + '!'\n"
     )
     fakes.cleaned = "Please call Anna tomorrow."
     client.post("/reload")
@@ -171,8 +174,11 @@ def test_hooks_shape_the_text_around_cleanup(fakes: Fakes, hooks: Path, client: 
     assert [c[:2] for c in calls(hooks)] == [
         ["on_transcribed", "please call Anna tomorrow"],
         ["on_cleaned", "Please call Anna tomorrow.!"],
-        ["on_logged", "Please call Anna tomorrow.!"],
+        ["on_output", "Please call Anna tomorrow.!"],
+        ["on_done", "Please call Anna tomorrow.!"],
     ]
+    # The recorder's on_output returns None, so the text that was output is logged.
+    assert (tmp_path / "log.txt").read_text() == "Please call Anna tomorrow.!"
 
 
 @pytest.mark.parametrize(("query", "enabled"), [("?cleanup=false", True), ("", False)])
@@ -191,26 +197,27 @@ def test_empty_transcription_fires_no_hooks(hooks: Path, client: TestClient):
 def test_hook_returning_empty_text_stops_the_pipeline(
     fakes: Fakes, hooks: Path, client: TestClient
 ):
-    (hooks / "a.py").write_text("def on_transcribed(u): return ''\n")
+    (hooks / "a.py").write_text("def on_transcribed(t): return ''\n")
     client.post("/reload")
     assert client.post("/transcribe", content=SPEECH).json()["clean"] == ""
     assert set(fakes.cleaner_inputs) == {"Hello there."}  # only the warm-up passes
     assert calls(hooks) == []
 
 
-def test_run_leaves_on_logged_for_after_the_reply(hooks: Path, client: TestClient):
+def test_run_leaves_on_output_and_on_done_for_after_the_reply(hooks: Path, client: TestClient):
     wait_for_load()
-    audio, now = np.zeros(16_000, "<f4"), datetime.now().astimezone()
-    _, logged = server.executor.submit(server.run, audio, True, now).result()
+    audio = np.zeros(16_000, "<f4")
+    _, after = server.executor.submit(server.run, audio, True).result()
     assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned"]
-    logged()
-    assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", "on_logged"]
+    after()
+    assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", "on_output", "on_done"]
 
 
-def test_on_logged_fires_once_on_the_model_executor(hooks: Path, client: TestClient):
+def test_hooks_after_the_reply_fire_once_on_the_model_executor(hooks: Path, client: TestClient):
     client.post("/transcribe", content=SPEECH)
-    [logged] = [c for c in calls(hooks) if c[0] == "on_logged"]
-    assert logged[2] == server.executor.submit(lambda: threading.current_thread().name).result()
+    after = [c for c in calls(hooks) if c[0] in ("on_output", "on_done")]
+    executor = server.executor.submit(lambda: threading.current_thread().name).result()
+    assert [(c[0], c[2]) for c in after] == [("on_output", executor), ("on_done", executor)]
 
 
 def test_hook_file_failing_to_load_leaves_health_alone(hooks: Path, client: TestClient):
@@ -221,7 +228,7 @@ def test_hook_file_failing_to_load_leaves_health_alone(hooks: Path, client: Test
     assert (health["ready"], health["error"]) == (True, None)
 
 
-def test_reply_is_sent_before_on_logged(hooks: Path, client: TestClient):
+def test_reply_is_sent_before_on_output(hooks: Path, client: TestClient):
     wait_for_load()
     at_reply = []
 
@@ -235,4 +242,62 @@ def test_reply_is_sent_before_on_logged(hooks: Path, client: TestClient):
     path = {"type": "http", "method": "POST", "path": "/transcribe", "query_string": b""}
     asyncio.run(server.app({**path, "headers": []}, receive, send))
     assert at_reply == [["on_transcribed", "on_cleaned"]]
-    assert calls(hooks)[-1][0] == "on_logged"
+    assert calls(hooks)[-1][0] == "on_done"
+
+
+def test_log_is_written_without_hook_files(hooks: Path, tmp_path: Path, client: TestClient):
+    (hooks / "zz_recorder.py").unlink()
+    client.post("/reload")
+    client.post("/transcribe", content=SPEECH)
+    assert (tmp_path / "log.txt").read_text() == "We should meet on Friday."
+
+
+def test_log_py_is_just_another_hook_file(hooks: Path, tmp_path: Path, client: TestClient):
+    (hooks / "log.py").write_text("")
+    client.post("/reload")
+    client.post("/transcribe", content=SPEECH)
+    assert (tmp_path / "log.txt").read_text() == "We should meet on Friday."
+    assert calls(hooks)[-1][0] == "on_done"
+
+
+def test_on_output_fires_before_the_log_is_written_and_on_done_after(
+    hooks: Path, client: TestClient
+):
+    client.post("/transcribe", content=SPEECH)
+    assert [[c[0], c[3]] for c in calls(hooks)][-2:] == [
+        ["on_output", "False"],
+        ["on_done", "True"],
+    ]
+
+
+def test_failed_log_write_is_logged_and_on_done_still_fires(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    hooks: Path,
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+):
+    monkeypatch.setattr(lifecycle, "LOG", tmp_path / "missing/log.txt")
+    client.post("/transcribe", content=SPEECH)
+    assert "log write failed" in caplog.text
+    assert calls(hooks)[-1][0] == "on_done"
+
+
+def test_on_output_decides_what_is_logged_but_not_the_reply(
+    hooks: Path, tmp_path: Path, client: TestClient
+):
+    (hooks / "a.py").write_text("def on_output(t): return t.upper()\n")
+    client.post("/reload")
+    assert client.post("/transcribe", content=SPEECH).json()["clean"] == "We should meet on Friday."
+    assert (tmp_path / "log.txt").read_text() == "WE SHOULD MEET ON FRIDAY."
+    assert calls(hooks)[-1][:2] == ["on_done", "WE SHOULD MEET ON FRIDAY."]
+
+
+def test_on_output_returning_empty_text_skips_the_log_and_on_done(
+    hooks: Path, tmp_path: Path, client: TestClient
+):
+    (hooks / "a.py").write_text("def on_output(t): return ''\n")
+    client.post("/reload")
+    assert client.post("/transcribe", content=SPEECH).json()["clean"] == "We should meet on Friday."
+    assert not (tmp_path / "log.txt").exists()
+    assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned"]

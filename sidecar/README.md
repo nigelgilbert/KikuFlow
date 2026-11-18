@@ -61,16 +61,17 @@ Body: one utterance, 16 kHz mono, either
 safety check, or when nothing was said, unless a hook changed it. Audio under 0.1 s returns
 empty strings. Paste `clean`.
 
-Lifecycle hooks run on the text in between: `on_transcribed` after speech recognition (the
-cleanup model gets its result), `on_cleaned` after the cleanup stage, also when cleanup is off,
-and `on_logged` after the response has been sent, so it does not delay that reply (it runs on
-the model thread, so a slow one holds up the next dictation). `raw` is always the speech
-recognition output. Once the text is empty, no further hook runs. Hook files are the
-`*.py` files in `src/slopr_sidecar/hooks/` (built-in) and in
-`~/Library/Application Support/SloprFlow/hooks/`, where a file replaces the built-in of the
-same name. They load with the models, so `/reload` re-reads them; one that fails to import is
-skipped and does not set `/health`'s `error`. The built-in `log.py` keeps the last 100 texts in
-`~/Library/Application Support/SloprFlow/log.txt`. Examples: `examples/README.md`.
+Four lifecycle hooks take the text as a plain string and return the text for the next phase:
+`on_transcribed` after speech recognition (the cleanup model gets its result), `on_cleaned`
+after the cleanup stage, also when cleanup is off (`clean` is its result), then, once the
+response has been sent, `on_output` (the log gets its result), the log and `on_done`. Those
+three do not delay the reply, but they run on the model thread, so a slow hook holds up the next
+dictation. `raw` is always the speech recognition output. Once the text is empty, nothing
+further runs, the log included. The log is always written, by the sidecar itself: the last 100
+texts in `~/Library/Application Support/SloprFlow/log.txt`, one line each. Hook files are the
+`*.py` files in `~/Library/Application Support/SloprFlow/hooks/`. They load with the models, so
+`/reload` re-reads them; one that fails to import is skipped and does not set `/health`'s
+`error`. Examples: `examples/README.md`.
 
 Errors: `400` malformed audio, `503` models not loaded (`detail` holds the reason). Requests
 are processed one at a time; one sent while models load waits for them.

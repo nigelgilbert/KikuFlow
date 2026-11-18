@@ -26,5 +26,9 @@ cat > "$app/Contents/Info.plist" <<EOF
 </dict>
 </plist>
 EOF
-codesign --force --sign - "$app"
+# Signed with a "Slopr Flow Dev" certificate from the keychain, macOS keeps the Accessibility grant
+# across rebuilds; an ad-hoc signature changes with every build, so the grant is lost each time.
+identity="Slopr Flow Dev"
+security find-certificate -c "$identity" >/dev/null 2>&1 || identity=-
+codesign --force --sign "$identity" "$app"
 echo "$PWD/$app"
