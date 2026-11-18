@@ -1,3 +1,4 @@
+import AVFoundation
 import AppKit
 
 enum Status: Equatable {
@@ -36,6 +37,10 @@ enum Status: Equatable {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let statusLine = NSMenuItem()
     private let cleanupItem = NSMenuItem(title: "Clean Up Text", action: #selector(toggleCleanup), keyEquivalent: "")
+    private let accessibilityItem = NSMenuItem(title: "Allow Accessibility (Hotkey and Paste)…",
+                                               action: #selector(allowAccessibility), keyEquivalent: "")
+    private let microphoneItem = NSMenuItem(title: "Allow Microphone…", action: #selector(allowMicrophone),
+                                            keyEquivalent: "")
 
     private let sidecar = Sidecar()
     private let recorder = Recorder()
@@ -57,6 +62,8 @@ enum Status: Equatable {
         statusLine.isEnabled = false
         menu.items = [
             statusLine,
+            accessibilityItem,
+            microphoneItem,
             .separator(),
             cleanupItem,
             NSMenuItem(title: "Open Config…", action: #selector(openConfig), keyEquivalent: ","),
@@ -68,7 +75,12 @@ enum Status: Equatable {
         refresh()
         sidecar.onChange = { [weak self] in self?.refresh() }
         sidecar.start()
-        Task { while !hotkey.start() { try? await Task.sleep(for: .seconds(2)) } }
+        // The hotkey needs Accessibility; ask now, and pick it up as soon as it's granted.
+        AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
+        Task {
+            while !hotkey.start() { try? await Task.sleep(for: .seconds(2)) }
+            refresh()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) { sidecar.stop() }
@@ -81,6 +93,8 @@ enum Status: Equatable {
         if case .failed(let error) = status { statusLine.toolTip = error } else { statusLine.toolTip = nil }
         cleanupItem.state = cleanup && sidecar.cleanupLoaded ? .on : .off
         cleanupItem.isEnabled = sidecar.cleanupLoaded
+        accessibilityItem.isHidden = AXIsProcessTrusted()
+        microphoneItem.isHidden = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
     }
 
     private func hotkeyChanged(down: Bool) {
@@ -90,6 +104,14 @@ enum Status: Equatable {
     private func startListening() {
         guard activity == nil else { return }
         guard sidecar.status == .ready else { return hud.flash("Slopr Flow isn't ready. \(sidecar.status.title)") }
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {  // asked on first use, not at launch
+        case .authorized: break
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .audio) { _ in }
+            return hud.flash("Allow microphone access, then hold Right Option again")
+        default:
+            return hud.flash("Microphone access is off. Turn it on in System Settings › Privacy & Security.")
+        }
         do {
             let hud = hud
             try recorder.start(onLevel: { hud.level($0) })
@@ -114,6 +136,22 @@ enum Status: Equatable {
                 hud.flash("Couldn't transcribe: \(error.localizedDescription)")
             }
         }
+    }
+
+    @objc private func allowAccessibility() {
+        openSettings("Privacy_Accessibility")
+    }
+
+    @objc private func allowMicrophone() {
+        if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
+            AVCaptureDevice.requestAccess(for: .audio) { _ in }
+        } else {
+            openSettings("Privacy_Microphone")
+        }
+    }
+
+    private func openSettings(_ pane: String) {
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)")!)
     }
 
     @objc private func toggleCleanup() { cleanup.toggle(); refresh() }
