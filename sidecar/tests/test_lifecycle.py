@@ -101,6 +101,12 @@ def test_message_without_text_has_no_trailing_colon():
     assert default_message(info.value) == "cleanup model: TimeoutError"
 
 
+def test_message_of_only_whitespace_has_no_trailing_colon():
+    with pytest.raises(RuntimeError) as info, labelled("cleanup model"):
+        raise RuntimeError("\n")
+    assert default_message(info.value) == "cleanup model: RuntimeError"
+
+
 def test_message_is_folded_onto_one_line():
     with pytest.raises(ValueError) as info, labelled("speech recognition"):
         raise ValueError("first line\n  second line")

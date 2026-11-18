@@ -56,7 +56,7 @@ def fold(text: str) -> str:
 
 def default_message(e: BaseException) -> str:
     """`label: Type: message` on one line, the label being the last note on `e`."""
-    parts = [*getattr(e, "__notes__", [])[-1:], type(e).__name__, str(e)]
+    parts = [*getattr(e, "__notes__", [])[-1:], type(e).__name__, str(e).strip()]
     return fold(": ".join(filter(None, parts)))
 
 
