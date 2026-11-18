@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from slopr_sidecar import cleanup, lifecycle, server
-from slopr_sidecar.config import Config
+from slopr_sidecar.config import Config, load_config
 
 SPEECH = np.zeros(16_000, "<f4").tobytes()  # one second of raw float32 PCM
 RAW = "um so we should uh meet on Friday"
@@ -26,7 +26,7 @@ def record(point, t):
 
 def on_transcribed(t): record("on_transcribed", t)
 def on_cleaned(t): record("on_cleaned", t)
-def on_output(t): record("on_output", t)
+def on_sent(t): record("on_sent", t)
 def on_done(t): record("on_done", t)
 """
 
@@ -132,18 +132,11 @@ def test_transcribe_with_cleanup(client: TestClient):
     assert set(body["timings"]) == {"stt_ms", "cleanup_ms"}
 
 
-def test_transcribe_with_cleanup_off_by_query(client: TestClient):
-    body = client.post("/transcribe?cleanup=false", content=SPEECH).json()
-    assert body["clean"] == body["raw"] == RAW
-
-
-def test_cleanup_off_by_config_does_not_load_the_model(fakes: Fakes):
-    fakes.config = Config(cleanup_enabled=False)
+def test_leftover_cleanup_enabled_is_ignored(fakes: Fakes, tmp_path: Path):
+    (tmp_path / "config.toml").write_text("[cleanup]\nenabled = false\n")
+    fakes.config = load_config(tmp_path / "config.toml")
     with TestClient(server.app) as client:
-        body = client.post("/transcribe", content=SPEECH).json()
-        assert body["clean"] == body["raw"] == RAW
-        assert client.get("/health").json()["cleanup_model"] is None
-    assert fakes.cleaner_loads == 0
+        assert client.post("/transcribe", content=SPEECH).json()["clean"] == fakes.cleaned
 
 
 def test_implausible_cleanup_falls_back_to_raw(fakes: Fakes, client: TestClient):
@@ -220,19 +213,11 @@ def test_hooks_shape_the_text_around_cleanup(
     assert [c[:2] for c in calls(hooks)] == [
         ["on_transcribed", "please call Anna tomorrow"],
         ["on_cleaned", "Please call Anna tomorrow.!"],
-        ["on_output", "Please call Anna tomorrow.!"],
+        ["on_sent", "Please call Anna tomorrow.!"],
         ["on_done", "Please call Anna tomorrow.!"],
     ]
-    # The recorder's on_output returns None, so the text that was output is logged.
+    # The recorder's on_sent returns None, so the text that was sent is logged.
     assert (tmp_path / "log.txt").read_text() == "Please call Anna tomorrow.!"
-
-
-@pytest.mark.parametrize(("query", "enabled"), [("?cleanup=false", True), ("", False)])
-def test_on_cleaned_fires_with_cleanup_off(fakes: Fakes, hooks: Path, query: str, enabled: bool):
-    fakes.config = Config(cleanup_enabled=enabled)
-    with TestClient(server.app) as client:
-        assert client.post("/transcribe" + query, content=SPEECH).json()["clean"] == RAW
-    assert ["on_cleaned", RAW] in [c[:2] for c in calls(hooks)]
 
 
 def test_empty_transcription_fires_no_hooks(hooks: Path, client: TestClient):
@@ -250,20 +235,20 @@ def test_hook_returning_empty_text_stops_the_pipeline(
     assert calls(hooks) == []
 
 
-def test_run_leaves_on_output_and_on_done_for_after_the_reply(hooks: Path, client: TestClient):
+def test_run_leaves_on_sent_and_on_done_for_after_the_reply(hooks: Path, client: TestClient):
     wait_for_load()
     audio = np.zeros(16_000, "<f4")
-    _, after = server.executor.submit(server.run, audio, True).result()
+    _, after = server.executor.submit(server.run, audio).result()
     assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned"]
     after()
-    assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", "on_output", "on_done"]
+    assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", "on_sent", "on_done"]
 
 
 def test_hooks_after_the_reply_fire_once_on_the_model_executor(hooks: Path, client: TestClient):
     client.post("/transcribe", content=SPEECH)
-    after = [c for c in calls(hooks) if c[0] in ("on_output", "on_done")]
+    after = [c for c in calls(hooks) if c[0] in ("on_sent", "on_done")]
     executor = server.executor.submit(lambda: threading.current_thread().name).result()
-    assert [(c[0], c[2]) for c in after] == [("on_output", executor), ("on_done", executor)]
+    assert [(c[0], c[2]) for c in after] == [("on_sent", executor), ("on_done", executor)]
 
 
 def test_hook_file_failing_to_import_fails_the_load_before_the_models(
@@ -279,7 +264,7 @@ def test_hook_file_failing_to_import_fails_the_load_before_the_models(
     assert errors(tmp_path) == []
 
 
-def test_reply_is_sent_before_on_output(hooks: Path, client: TestClient):
+def test_reply_is_sent_before_on_sent(hooks: Path, client: TestClient):
     wait_for_load()
     at_reply = []
 
@@ -311,12 +296,10 @@ def test_log_py_is_just_another_hook_file(hooks: Path, tmp_path: Path, client: T
     assert calls(hooks)[-1][0] == "on_done"
 
 
-def test_on_output_fires_before_the_log_is_written_and_on_done_after(
-    hooks: Path, client: TestClient
-):
+def test_on_sent_fires_before_the_log_is_written_and_on_done_after(hooks: Path, client: TestClient):
     client.post("/transcribe", content=SPEECH)
     assert [[c[0], c[3]] for c in calls(hooks)][-2:] == [
-        ["on_output", "False"],
+        ["on_sent", "False"],
         ["on_done", "True"],
     ]
 
@@ -328,23 +311,23 @@ def test_failed_log_write_is_recorded_and_stops_on_done(
     assert client.post("/transcribe", content=SPEECH).status_code == 200
     [entry] = errors(tmp_path)
     assert entry.startswith("log write: FileNotFoundError: ")
-    assert calls(hooks)[-1][0] == "on_output"
+    assert calls(hooks)[-1][0] == "on_sent"
 
 
-def test_on_output_decides_what_is_logged_but_not_the_reply(
+def test_on_sent_decides_what_is_logged_but_not_the_reply(
     hooks: Path, tmp_path: Path, client: TestClient
 ):
-    (hooks / "a.py").write_text("def on_output(t): return t.upper()\n")
+    (hooks / "a.py").write_text("def on_sent(t): return t.upper()\n")
     client.post("/reload")
     assert client.post("/transcribe", content=SPEECH).json()["clean"] == "We should meet on Friday."
     assert (tmp_path / "log.txt").read_text() == "WE SHOULD MEET ON FRIDAY."
     assert calls(hooks)[-1][:2] == ["on_done", "WE SHOULD MEET ON FRIDAY."]
 
 
-def test_on_output_returning_empty_text_skips_the_log_and_on_done(
+def test_on_sent_returning_empty_text_skips_the_log_and_on_done(
     hooks: Path, tmp_path: Path, client: TestClient
 ):
-    (hooks / "a.py").write_text("def on_output(t): return ''\n")
+    (hooks / "a.py").write_text("def on_sent(t): return ''\n")
     client.post("/reload")
     assert client.post("/transcribe", content=SPEECH).json()["clean"] == "We should meet on Friday."
     assert not (tmp_path / "log.txt").exists()
@@ -361,6 +344,18 @@ def test_hook_failing_before_the_reply_gives_500_with_its_message(
     assert response.json() == {"detail": "on_cleaned in voice.py:2: KeyError: 'x'"}
     assert [c[0] for c in calls(hooks)] == ["on_transcribed"]
     assert errors(tmp_path) == ["on_cleaned in voice.py:2: KeyError: 'x'"]
+
+
+def test_hook_returning_a_wrong_type_before_the_reply_gives_500(
+    hooks: Path, tmp_path: Path, client: TestClient
+):
+    (hooks / "a.py").write_text("def on_cleaned(t): return {}\n")
+    client.post("/reload")
+    response = client.post("/transcribe", content=SPEECH)
+    detail = "on_cleaned in a.py: TypeError: on_cleaned returned dict, not str or None"
+    assert (response.status_code, response.json()) == (500, {"detail": detail})
+    assert [c[0] for c in calls(hooks)] == ["on_transcribed"]
+    assert errors(tmp_path) == [detail]
 
 
 @pytest.mark.parametrize(
@@ -393,7 +388,7 @@ def test_model_failing_gives_500_with_its_label(
 
 @pytest.mark.parametrize(
     ("point", "run"),
-    [("on_output", ["on_output"]), ("on_done", ["on_output", "on_done"])],
+    [("on_sent", ["on_sent"]), ("on_done", ["on_sent", "on_done"])],
 )
 def test_hook_failing_after_the_reply_is_recorded_and_stops_the_rest(
     hooks: Path, tmp_path: Path, client: TestClient, point: str, run: list[str]
@@ -405,6 +400,30 @@ def test_hook_failing_after_the_reply_is_recorded_and_stops_the_rest(
     assert (tmp_path / "log.txt").exists() == (point == "on_done")
     # The recorder sorts after a.py, so it sees only the phases before the failing one.
     assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", *run[:-1]]
+
+
+@pytest.mark.parametrize("point", ["on_sent", "on_done"])
+def test_hook_returning_a_wrong_type_after_the_reply_is_recorded(
+    hooks: Path, tmp_path: Path, client: TestClient, point: str
+):
+    (hooks / "a.py").write_text(f"def {point}(t): return {{}}\n")
+    client.post("/reload")
+    assert client.post("/transcribe", content=SPEECH).status_code == 200
+    message = f"{point} in a.py: TypeError: {point} returned dict, not str or None"
+    assert errors(tmp_path) == [message]
+    assert (tmp_path / "log.txt").exists() == (point == "on_done")
+    ran = ["on_transcribed", "on_cleaned", *(["on_sent"] if point == "on_done" else [])]
+    assert [c[0] for c in calls(hooks)] == ran
+
+
+def test_on_done_returning_a_string_changes_nothing(
+    hooks: Path, tmp_path: Path, client: TestClient
+):
+    (hooks / "a.py").write_text("def on_done(t): return 'other'\n")
+    client.post("/reload")
+    assert client.post("/transcribe", content=SPEECH).status_code == 200
+    assert errors(tmp_path) == []
+    assert (tmp_path / "log.txt").read_text() == "We should meet on Friday."
 
 
 def test_on_error_returning_empty_gives_500_with_empty_detail(

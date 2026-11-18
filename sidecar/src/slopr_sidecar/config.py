@@ -17,7 +17,6 @@ STT_MODELS = {
 class Config:
     stt_engine: str = "parakeet"
     stt_model: str = STT_MODELS["parakeet"]
-    cleanup_enabled: bool = True
     cleanup_model: str = "ReFyneLabs/simplewords-dictation-cleanup-v3"
     cleanup_prompt_file: str = ""
     cleanup_prompt_role: str = ""
@@ -33,7 +32,6 @@ def load_config(path: Path = APP_DIR / "config.toml") -> Config:
     config = Config(
         stt_engine=engine,
         stt_model=stt.get("model", STT_MODELS.get(engine, d.stt_model)),
-        cleanup_enabled=cleanup.get("enabled", d.cleanup_enabled),
         cleanup_model=cleanup.get("model", d.cleanup_model),
         cleanup_prompt_file=cleanup.get("prompt_file", d.cleanup_prompt_file),
         cleanup_prompt_role=cleanup.get("prompt_role", d.cleanup_prompt_role),

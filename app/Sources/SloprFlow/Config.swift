@@ -13,7 +13,6 @@ enum Config {
         # whisper "mlx-community/whisper-large-v3-turbo"
 
         [cleanup]
-        enabled = true
         model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
         # or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
         # prompt_file = ""      # a text file whose contents replace the model's built-in prompt
