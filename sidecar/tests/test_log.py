@@ -1,10 +1,9 @@
-from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 from slopr_sidecar import config
-from slopr_sidecar.lifecycle import HOOK_DIRS, Utterance, fire, load_hooks
+from slopr_sidecar.lifecycle import HOOK_DIRS, fire, load_hooks
 
 
 @pytest.fixture
@@ -15,7 +14,7 @@ def log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
     def dictate(*texts: str) -> str:
         for text in texts:
-            fire(hooks, "on_logged", Utterance(datetime.now().astimezone(), text, text))
+            fire(hooks, "on_logged", text)
         return (tmp_path / "log.txt").read_text("utf-8")
 
     return dictate

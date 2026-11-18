@@ -5,6 +5,6 @@ from slopr_sidecar.config import APP_DIR
 LOG = APP_DIR / "log.txt"
 
 
-def on_logged(u):
+def on_logged(t):
     old = LOG.read_text("utf-8").strip().split("\n\n") if LOG.exists() else []
-    LOG.write_text("\n\n".join([*filter(None, old), " ".join(u.text.split())][-100:]), "utf-8")
+    LOG.write_text("\n\n".join([*filter(None, old), " ".join(t.split())][-100:]), "utf-8")

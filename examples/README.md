@@ -8,21 +8,15 @@ mic → transcribe → [on_transcribed] → cleanup model → [on_cleaned] → p
 
 A **hook** is a function named after one of those points. A **hook file** is a `.py` file that
 defines one or more of them, and nothing else is needed: no imports, no registration. Each hook
-gets the dictation as `u`:
+gets the text as a plain string `t`:
 
 ```
-u.at     when the audio arrived, a datetime in local time with its zone
-u.raw    the transcript straight from speech recognition, never changes
-u.text   what will be pasted; hooks replace it
+def on_transcribed(t) -> str | None   # after speech recognition, before the cleanup model
+def on_cleaned(t) -> str | None       # after the cleanup stage, also when cleanup is off
+def on_logged(t) -> None              # after the text has been sent to be pasted
 ```
 
-```
-def on_transcribed(u) -> str | None   # after speech recognition, before the cleanup model
-def on_cleaned(u) -> str | None       # after the cleanup stage, also when cleanup is off
-def on_logged(u) -> None              # after the text has been sent to be pasted
-```
-
-A hook that returns a string replaces `u.text`; returning `None` leaves it alone. Returning `""`
+A hook that returns a string replaces the text; returning `None` leaves it alone. Returning `""`
 stops the dictation: nothing is cleaned, pasted or logged after it. A hook that raises, or a hook
 file that fails to import, is skipped with its traceback on the sidecar's stderr; the dictation
 still completes. To see that output, quit Slopr Flow and start its binary from Terminal, for a
@@ -47,8 +41,8 @@ WORDS = {"slopper": "Slopr", "jason": "JSON", "mac os": "macOS"}  # keys in lowe
 PATTERN = re.compile(r"\b(" + "|".join(map(re.escape, WORDS)) + r")\b", re.IGNORECASE)
 
 
-def on_transcribed(u):
-    return PATTERN.sub(lambda m: WORDS[m[0].lower()], u.text)
+def on_transcribed(t):
+    return PATTERN.sub(lambda m: WORDS[m[0].lower()], t)
 ```
 
 ## Voice
@@ -57,23 +51,31 @@ def on_transcribed(u):
 stop at the end.
 
 ```python
-def on_cleaned(u):
-    text = u.text.removesuffix(".")
-    return text[:1].lower() + text[1:]
+def on_cleaned(t):
+    t = t.removesuffix(".")
+    return t[:1].lower() + t[1:]
 ```
 
 Hooks run inside the sidecar, so a heavier voice can load an `mlx_lm` model at import time and
-call it with `u.text` in `on_cleaned`.
+call it with `t` in `on_cleaned`.
 
 ## Overriding the cleanup
 
-`verbatim.py` pastes what you said, word for word, when you start with "verbatim". It reads
-`u.raw`, so it also undoes any earlier hook's changes. Hook files that sort after it, like
-`voice.py`, still run on its result.
+`verbatim.py` pastes what you said, word for word, when you start with "verbatim". It keeps
+the transcript in a variable of its own in `on_transcribed` and decides in `on_cleaned`. Hook
+files that sort after it, like `voice.py`, still run on its result.
 
 ```python
-def on_cleaned(u):
-    first, _, rest = u.raw.partition(" ")
+raw = ""
+
+
+def on_transcribed(t):
+    global raw
+    raw = t
+
+
+def on_cleaned(t):
+    first, _, rest = raw.partition(" ")
     if first.strip(",.").lower() == "verbatim":
         return rest
 ```
@@ -85,14 +87,16 @@ The built-in `log.py` keeps the last 100 dictations in
 your own replaces it; this one adds the time and keeps 1000.
 
 ```python
+from datetime import datetime
+
 from slopr_sidecar.config import APP_DIR
 
 LOG = APP_DIR / "log.txt"
 
 
-def on_logged(u):
+def on_logged(t):
     old = LOG.read_text("utf-8").strip().split("\n\n") if LOG.exists() else []
-    entry = f"{u.at:%Y-%m-%d %H:%M}  {' '.join(u.text.split())}"
+    entry = f"{datetime.now():%Y-%m-%d %H:%M}  {' '.join(t.split())}"
     LOG.write_text("\n\n".join([*filter(None, old), entry][-1000:]), "utf-8")
 ```
 

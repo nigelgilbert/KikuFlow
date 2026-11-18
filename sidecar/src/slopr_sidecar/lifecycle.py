@@ -3,8 +3,6 @@
 import logging
 import runpy
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 
 from .config import APP_DIR
@@ -14,15 +12,7 @@ log = logging.getLogger("uvicorn.error")
 POINTS = ("on_transcribed", "on_cleaned", "on_logged")
 HOOK_DIRS = (Path(__file__).with_name("hooks"), APP_DIR / "hooks")
 
-
-@dataclass
-class Utterance:
-    at: datetime  # when the audio arrived, local time with its zone
-    raw: str  # straight from the STT, never changes
-    text: str  # what will be pasted; hooks replace this
-
-
-type Hooks = dict[str, list[Callable[[Utterance], str | None]]]
+type Hooks = dict[str, list[Callable[[str], str | None]]]
 
 
 def load_hooks(dirs: Iterable[Path]) -> Hooks:
@@ -41,15 +31,16 @@ def load_hooks(dirs: Iterable[Path]) -> Hooks:
     return hooks
 
 
-def fire(hooks: Hooks, point: str, u: Utterance) -> None:
+def fire(hooks: Hooks, point: str, text: str) -> str:
     """Run the hooks for `point` in order while there is text; a returned str replaces it."""
     for hook in hooks[point]:
-        if not u.text:
-            return
+        if not text:
+            break
         try:
-            text = hook(u)
+            new = hook(text)
         except Exception:
             log.exception("%s hook failed", point)
             continue
-        if point != "on_logged" and isinstance(text, str):  # on_logged's return is ignored
-            u.text = text
+        if point != "on_logged" and isinstance(new, str):  # on_logged's return is ignored
+            text = new
+    return text

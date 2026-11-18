@@ -1,7 +1,6 @@
 import asyncio
 import threading
 from collections.abc import Iterator
-from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -20,13 +19,13 @@ import asyncio
 import threading
 from pathlib import Path
 
-def record(point, u):
+def record(point, t):
     with Path(__file__).with_name("calls.txt").open("a") as f:
-        print(point, u.text, threading.current_thread().name, sep="|", file=f)
+        print(point, t, threading.current_thread().name, sep="|", file=f)
 
-def on_transcribed(u): record("on_transcribed", u)
-def on_cleaned(u): record("on_cleaned", u)
-def on_logged(u): record("on_logged", u)
+def on_transcribed(t): record("on_transcribed", t)
+def on_cleaned(t): record("on_cleaned", t)
+def on_logged(t): record("on_logged", t)
 """
 
 
@@ -157,8 +156,8 @@ def test_load_failure_is_reported(fakes: Fakes):
 
 def test_hooks_shape_the_text_around_cleanup(fakes: Fakes, hooks: Path, client: TestClient):
     (hooks / "a.py").write_text(
-        "def on_transcribed(u): return 'please call Anna tomorrow'\n"
-        "def on_cleaned(u): return u.text + '!'\n"
+        "def on_transcribed(t): return 'please call Anna tomorrow'\n"
+        "def on_cleaned(t): return t + '!'\n"
     )
     fakes.cleaned = "Please call Anna tomorrow."
     client.post("/reload")
@@ -191,7 +190,7 @@ def test_empty_transcription_fires_no_hooks(hooks: Path, client: TestClient):
 def test_hook_returning_empty_text_stops_the_pipeline(
     fakes: Fakes, hooks: Path, client: TestClient
 ):
-    (hooks / "a.py").write_text("def on_transcribed(u): return ''\n")
+    (hooks / "a.py").write_text("def on_transcribed(t): return ''\n")
     client.post("/reload")
     assert client.post("/transcribe", content=SPEECH).json()["clean"] == ""
     assert set(fakes.cleaner_inputs) == {"Hello there."}  # only the warm-up passes
@@ -200,8 +199,8 @@ def test_hook_returning_empty_text_stops_the_pipeline(
 
 def test_run_leaves_on_logged_for_after_the_reply(hooks: Path, client: TestClient):
     wait_for_load()
-    audio, now = np.zeros(16_000, "<f4"), datetime.now().astimezone()
-    _, logged = server.executor.submit(server.run, audio, True, now).result()
+    audio = np.zeros(16_000, "<f4")
+    _, logged = server.executor.submit(server.run, audio, True).result()
     assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned"]
     logged()
     assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", "on_logged"]
