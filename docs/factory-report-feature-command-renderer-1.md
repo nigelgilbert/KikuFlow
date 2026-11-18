@@ -98,3 +98,32 @@ None on a verdict. The only difference left is the scope of fix 1.
 
 Candidates 15, kept 3 (1 fix, 2 nit), adversary `sol`, 2 calls: one independent read and one
 exchange on C1, C11 and C14.
+
+## Fix pass
+
+Pass base `bec3a6d50dc7d6c0f26b8a39183d59d2eb7c4de9`. The implementer folded in all three items
+and pushed back on none.
+
+| Item | Commit | Result |
+|---|---|---|
+| 1. Quotes in a config value (C3) | `7f05c74` | The reader strips one matching pair of quotes. `renderer = "say 'done'"` is tested. The `#` cut is unchanged. |
+| 2. A cut line drops the next state (C1) | `5cd7a4f` | A warning keeps its first 120 Unicode scalars, so a line is at most 489 bytes. `unsent` and the partial-write branch are gone, and `write` is one call. A new test covers the cap. |
+| 3. The short `PATH` (C5) | `b3dd90a` | One sentence in "Your own HUD". |
+
+## Open items
+
+- The four app-level points of item 4 have not been run in the real app: the same pill with no
+  `[hud]` section, `renderer = "cat >> states.txt"`, `renderer = "exit 1"`, and killing
+  `SloprHUD` while the app runs.
+- C10: `SloprHUD` registers with macOS under the app's own identity. Its effects are untested.
+- A `#` inside the renderer command is still cut off as a comment.
+- The cap on a warning cuts by Unicode scalar, so it can split the last character of a very
+  long warning.
+
+## Tests
+
+At `b3dd90a`:
+
+- `app/test.sh`: 14 tests passed
+- `swift build`: both executables build
+- The sidecar is unchanged.
