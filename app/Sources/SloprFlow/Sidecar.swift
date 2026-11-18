@@ -26,11 +26,16 @@ import Foundation
         let (data, response) = try await URLSession.shared.data(for: request)
         struct Reply: Decodable { let clean: String?; let detail: String? }
         let reply = try? JSONDecoder().decode(Reply.self, from: data)
-        guard (response as? HTTPURLResponse)?.statusCode == 200, let clean = reply?.clean else {
+        let status = (response as? HTTPURLResponse)?.statusCode
+        guard status == 200, let clean = reply?.clean else {
+            if status == 500, let detail = reply?.detail { throw Detail(text: detail) }
             throw Failure(reply?.detail ?? "The speech engine returned an error")
         }
         return clean
     }
+
+    /// A 500's `detail`, a hook or model failure, shown as it is; empty when an `on_error` hook silenced it.
+    struct Detail: Error { let text: String }
 
     func stop() {
         quitting = true

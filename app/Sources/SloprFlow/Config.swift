@@ -4,6 +4,7 @@ enum Config {
     static let dir = URL.applicationSupportDirectory.appending(path: "SloprFlow")
     static let file = dir.appending(path: "config.toml")
     static let log = dir.appending(path: "log.txt")
+    static let errors = dir.appending(path: "errors.txt")
 
     static let defaults = """
         [stt]
@@ -15,6 +16,9 @@ enum Config {
         enabled = true
         model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
         # or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
+        # prompt_file = ""      # a text file whose contents replace the model's built-in prompt
+        # prompt_role = ""      # "system" or "user": the chat role the prompt is sent as; rarely needed
+        # safety_check = true   # false keeps whatever the model returns
 
         [server]
         port = 48123
@@ -56,6 +60,7 @@ enum Config {
 
     @MainActor static func open() { open(file, creatingWith: defaults) }
     @MainActor static func openLog() { open(log, creatingWith: "") }
+    @MainActor static func openErrors() { open(errors, creatingWith: "") }
 
     /// Opens `url`, first writing `contents` to it if it is missing, in TextEdit if no app claims it.
     @MainActor private static func open(_ url: URL, creatingWith contents: String) {

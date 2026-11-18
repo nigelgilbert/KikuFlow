@@ -69,6 +69,7 @@ enum Status: Equatable {
             cleanupItem,
             NSMenuItem(title: "Open Config…", action: #selector(openConfig), keyEquivalent: ","),
             NSMenuItem(title: "Open Log…", action: #selector(openLog), keyEquivalent: ""),
+            NSMenuItem(title: "Open Errors…", action: #selector(openErrors), keyEquivalent: ""),
             .separator(),
             NSMenuItem(title: "About Slopr Flow", action: #selector(about), keyEquivalent: ""),
             NSMenuItem(title: "Restart Slopr Flow", action: #selector(restart), keyEquivalent: "r"),
@@ -145,6 +146,8 @@ enum Status: Equatable {
                 let text = try await sidecar.transcribe(samples, cleanup: cleanup)
                 if !text.isEmpty { paste(text) }
                 render(.hidden)
+            } catch let error as Sidecar.Detail {
+                render(error.text.isEmpty ? .hidden : .warning(error.text))
             } catch {
                 render(.warning("Couldn't transcribe: \(error.localizedDescription)"))
             }
@@ -181,6 +184,8 @@ enum Status: Equatable {
     @objc private func openConfig() { Config.open() }
 
     @objc private func openLog() { Config.openLog() }
+
+    @objc private func openErrors() { Config.openErrors() }
 
     /// Quits, then reopens the app once this process has gone, so the new one finds the port free.
     @objc private func restart() {

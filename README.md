@@ -54,6 +54,9 @@ engine = "parakeet"   # or "whisper"
 enabled = true
 model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
 # or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
+# prompt_file = ""      # a text file whose contents replace the model's built-in prompt
+# prompt_role = ""      # "system" or "user": the chat role the prompt is sent as; rarely needed
+# safety_check = true   # false keeps whatever the model returns
 
 [server]
 port = 48123
@@ -68,6 +71,19 @@ that isn't in the list falls back to Right Option. With `key = "fn"`, set System
 Keyboard › "Press 🌐 key to" to "Do Nothing", or macOS also runs that action when you let go.
  "Clean Up Text" in the menu turns the cleanup pass off
 and on without reloading anything.
+
+### Your own cleanup prompt or model
+
+Set `prompt_file` to a text file holding your prompt (a relative path is in
+`~/Library/Application Support/SloprFlow/`) and choose "Restart Slopr Flow" after editing it.
+With `prompt_role = "system"` the prompt is the system message and your words are the user
+message; with `"user"` the prompt and your words share one user message; empty keeps the
+model's built-in role, or `"system"` for any other model. Use `"user"` for a model whose
+chat template has no system role. With `prompt_file` set, `model` can be any mlx-lm chat model.
+Two caveats: the built-in models are fine-tunes trained on one exact prompt, so a new prompt for
+them will likely clean up worse; and a prompt that is not a cleanup (translate, summarize,
+rewrite as an email) needs `safety_check = false`, or its output is thrown away for not looking
+like a cleanup of your words.
 
 ### The default cleanup model is gated
 
@@ -89,6 +105,11 @@ log in. Until then the menu shows `Access to model … is restricted`. Either:
 your last 100 dictations, oldest first, one line each. The app always keeps it; an
 `on_output` hook (below) can change what an entry says or keep a dictation out.
 
+"Open Errors…" opens `errors.txt` beside it: the last 50 failures, one line each with the time
+in front, such as `2026-11-18 14:02 on_cleaned in voice.py:3: KeyError: 'x'`. A failure before
+the text is pasted also shows in the HUD, and nothing is pasted. The app always keeps it; an
+`on_error` hook (below) can change what an entry says or keep a failure out.
+
 ## Lifecycle hooks
 
 The text passes through four hooks you can write in plain Python, each taking the text as a
@@ -96,8 +117,10 @@ plain string and returning the text for the next phase: `on_transcribed` after s
 recognition, `on_cleaned` after the cleanup model, `on_output` once the text has been sent to be
 pasted (the log gets what it returns), and `on_done` once the log entry has been written. Put
 hook files in `~/Library/Application Support/SloprFlow/hooks/`, a folder you create, and choose
-"Restart Slopr Flow". See [examples/README.md](examples/README.md) for vocabulary fixes, a
-different voice and changes to what is logged.
+"Restart Slopr Flow". A hook that raises stops the dictation there, and `on_error`, the one
+hook that gets the exception instead of the text, decides what the failure says. See
+[examples/README.md](examples/README.md) for vocabulary fixes, a different voice, changes to
+what is logged and handling failures.
 
 ## Licenses and attributions
 

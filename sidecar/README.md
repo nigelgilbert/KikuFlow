@@ -38,8 +38,9 @@ Answers immediately, also while models load (first launch downloads several GB).
 ```
 
 - Loading: `ready` false, `error` null, model fields null. Keep polling.
-- Load failed: `ready` false, `error` is a message (e.g. bad config, download failure). Show
-  it; the server stays up, fix the config and call `/reload`.
+- Load failed: `ready` false, `error` is a message (e.g. bad config, download failure, or a
+  hook file that fails to import, as `hook file voice.py: ModuleNotFoundError: …`). Show it;
+  the server stays up, fix the cause and call `/reload`.
 - `cleanup_model` is null when cleanup is disabled in config.
 
 ### `POST /transcribe?cleanup=true|false`
@@ -58,7 +59,8 @@ Body: one utterance, 16 kHz mono, either
 ```
 
 `clean` equals `raw` when cleanup is off (query or config), when the cleanup output fails the
-safety check, or when nothing was said, unless a hook changed it. Audio under 0.1 s returns
+safety check (or, with `safety_check = false`, is empty), or when nothing was said, unless a
+hook changed it. Audio under 0.1 s returns
 empty strings. Paste `clean`.
 
 Four lifecycle hooks take the text as a plain string and return the text for the next phase:
@@ -69,12 +71,23 @@ three do not delay the reply, but they run on the model thread, so a slow hook h
 dictation. `raw` is always the speech recognition output. Once the text is empty, nothing
 further runs, the log included. The log is always written, by the sidecar itself: the last 100
 texts in `~/Library/Application Support/SloprFlow/log.txt`, one line each. Hook files are the
-`*.py` files in `~/Library/Application Support/SloprFlow/hooks/`. They load with the models, so
-`/reload` re-reads them; one that fails to import is skipped and does not set `/health`'s
-`error`. Examples: `examples/README.md`.
+`*.py` files in `~/Library/Application Support/SloprFlow/hooks/`. They load before the models,
+so `/reload` re-reads them, and one that fails to import fails the load. Examples:
+`examples/README.md`.
 
-Errors: `400` malformed audio, `503` models not loaded (`detail` holds the reason). Requests
-are processed one at a time; one sent while models load waits for them.
+An exception from speech recognition, the cleanup model, a hook or the log write is not caught
+and carried on: nothing after it runs. The sidecar adds a note to it naming where it came from
+(`speech recognition`, `cleanup model`, `log write`, or the hook as `on_cleaned in voice.py:3`)
+and the default message is `on_cleaned in voice.py:3: KeyError: 'x'`, on one line. `on_error(e)`
+hooks get the exception, in filename order; the first that returns a string decides the
+message, `""` means none, and one that raises is skipped and recorded under its own default
+message. The message goes into `~/Library/Application Support/SloprFlow/errors.txt`, the last 50
+with the time in front, and the traceback to stderr. A failure after the response goes nowhere
+else.
+
+Errors: `400` malformed audio; `500` a failure before the response, with the message as
+`detail` (`""` when `on_error` returned `""`); `503` models not loaded (`detail` holds the
+reason). Requests are processed one at a time; one sent while models load waits for them.
 
 ### `POST /reload`
 
@@ -94,10 +107,26 @@ model = "mlx-community/parakeet-tdt-0.6b-v3"   # with "whisper": "mlx-community/
 enabled = true
 model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
 # or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
+prompt_file = ""      # a text file whose contents replace the model's built-in prompt
+prompt_role = ""      # "system" or "user": the chat role the prompt is sent as; rarely needed
+safety_check = true   # false keeps whatever the model returns
 
 [server]
 port = 48123
 ```
+
+`prompt_file`: `~` expanded, relative to `~/Library/Application Support/SloprFlow/`, read at
+model load (so `/reload` picks up edits); missing or empty is a load error naming the path.
+`prompt_role`: `"system"` sends the prompt verbatim as the system turn and the transcript as the
+user turn; `"user"` sends one user turn, the stripped prompt, a blank line, the transcript; any
+other value is a load error. Empty means the model's built-in role (ReFyne `user`, Utter
+`system`), or `system` for any other model. A model whose chat template has no system role
+(Gemma 2, for one) fails to load with the template's error; set `prompt_role = "user"`. Any mlx-lm
+chat model works with `prompt_file`; an unknown model without it is a load error. The built-in
+models are fine-tunes trained on one exact prompt, so another prompt likely cleans up worse.
+`safety_check = false` uses any non-empty output and raises the generation cap from 2x to 4x the
+input tokens (plus 256), which a prompt that is not a cleanup (translate, summarize, email)
+needs.
 
 The default cleanup model is a gated Hugging Face repo: it downloads only after the user
 accepts its terms on huggingface.co and logs in (`HF_TOKEN` in the sidecar's environment, or
