@@ -9,6 +9,7 @@ import AppKit
     } ?? []
     pasteboard.clearContents()
     pasteboard.setString(text, forType: .string)
+    pasteboard.setData(Data(), forType: .init("org.nspasteboard.TransientType"))  // clipboard managers skip it
 
     // Without Accessibility access the system drops synthetic keystrokes without telling us.
     guard AXIsProcessTrusted(),
