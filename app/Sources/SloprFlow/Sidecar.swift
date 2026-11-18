@@ -7,7 +7,9 @@ import Foundation
     private(set) var cleanupLoaded = true
     var onChange: () -> Void = {}
 
-    private let base = URL(string: "http://127.0.0.1:\(Config.port)")!
+    /// Read once and handed to the sidecar, so both sides agree and a broken config can't stop it binding.
+    private let port = Config.port
+    private var base: URL { URL(string: "http://127.0.0.1:\(port)")! }
     private var process: Process?
     private var restarts = 0
     private var quitting = false
@@ -65,6 +67,7 @@ import Foundation
     private func launch() {
         let process = Process()
         process.executableURL = Config.dir.appending(path: "venv/bin/slopr-sidecar")
+        process.arguments = [String(port)]  // launched directly: it exits when its parent changes
         process.terminationHandler = { _ in Task { @MainActor [weak self] in self?.exited() } }
         do { try process.run() } catch { status = .failed(error.localizedDescription); return }
         self.process = process
