@@ -91,8 +91,7 @@ enum Status: Equatable {
 
     private func refresh() {
         item.button?.image = NSImage(systemSymbolName: status.symbol, accessibilityDescription: status.title)
-        // The menu grows to fit its longest title, so a long status is cut short. An error drops its "Error: "
-        // prefix to show more of the message, and its tooltip has it in full.
+        // The menu grows to fit its longest title, so a long status is cut short.
         let line = switch status {
         case .ready: "Hold \(key.title) to talk"
         case .failed: String(status.title.dropFirst("Error: ".count))
@@ -151,7 +150,7 @@ enum Status: Equatable {
         }
     }
 
-    /// Every HUD update goes through here, so anything shown cancels a pending warning hide.
+    /// Anything shown cancels a pending warning hide.
     private func render(_ state: HUDState) {
         hide?.cancel()
         hud.render(state)
@@ -182,7 +181,7 @@ enum Status: Equatable {
 
     @objc private func openErrors() { Config.openErrors() }
 
-    /// Quits, then reopens the app once this process has gone, so the new one finds the port free.
+    /// Reopens the app only once this process has gone, so the new one finds the port free.
     @objc private func restart() {
         let relaunch = Process()
         relaunch.executableURL = URL(filePath: "/bin/sh")
@@ -193,9 +192,4 @@ enum Status: Equatable {
         do { try relaunch.run() } catch { return render(.warning("Couldn't restart: \(error.localizedDescription)")) }
         NSApp.terminate(nil)
     }
-}
-
-struct Failure: LocalizedError {
-    let errorDescription: String?
-    init(_ message: String) { errorDescription = message }
 }

@@ -20,8 +20,7 @@ child process, passing the port as the only argument:
 "$HOME/Library/Application Support/SloprFlow/venv/bin/slopr-sidecar" 48123
 ```
 
-Without the argument (run by hand) the port comes from `server.port` in the config. With it,
-the config is read only by the model loader, so a broken config shows up as a `/health` error
+The config is read only by the model loader, so a broken config shows up as a `/health` error
 instead of a crash. The process stays in the foreground, logs to stderr, and exits by itself
 within a second if its parent process dies. Kill it to stop it.
 
@@ -40,7 +39,7 @@ Answers immediately, also while models load (first launch downloads several GB).
 - Loading: `ready` false, `error` null, model fields null. Keep polling.
 - Load failed: `ready` false, `error` is a message (e.g. bad config, download failure, or a
   hook file that fails to import, as `hook file voice.py: ModuleNotFoundError: …`). Show it;
-  the server stays up, fix the cause and call `/reload`.
+  the server stays up, fix the cause and restart it.
 
 ### `POST /transcribe`
 
@@ -69,8 +68,8 @@ model thread, so a slow hook holds up the next dictation. `raw` is always the sp
 output. Once the text is empty, nothing further runs, the log included. The log is always written,
 by the sidecar itself: the last 100 texts in `~/Library/Application Support/SloprFlow/log.txt`, one
 line each. Hook files are the `*.py` files in `~/Library/Application Support/SloprFlow/hooks/`,
-which `app/bundle.sh` links to `hooks/` in the repo. They load before the models, so `/reload`
-re-reads them, and one that fails to import fails the load.
+which `app/bundle.sh` links to `hooks/` in the repo. They load before the models, and one that
+fails to import fails the load.
 Examples: `examples/README.md`.
 
 An exception from speech recognition, the cleanup model, a hook or the log write is not caught and
@@ -87,14 +86,10 @@ Errors: `400` malformed audio; `500` a failure before the response, with the mes
 `detail` (`""` when `on_error` returned `""`); `503` models not loaded (`detail` holds the
 reason). Requests are processed one at a time; one sent while models load waits for them.
 
-### `POST /reload`
-
-Re-reads `config.toml` and reloads the models in the background. Returns the `/health` body
-(`ready` false); poll `/health` until ready. The port never changes without a restart.
-
 ## Config
 
-`~/Library/Application Support/SloprFlow/config.toml`. Missing file or keys use these defaults:
+`~/Library/Application Support/SloprFlow/config.toml`, read once at launch. Missing file or keys
+use these defaults:
 
 ```toml
 [stt]
@@ -107,13 +102,12 @@ model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
 prompt_file = ""      # a text file whose contents replace the model's built-in prompt
 prompt_role = ""      # "system" or "user": the chat role the prompt is sent as; rarely needed
 safety_check = true   # false keeps whatever the model returns
-
-[server]
-port = 48123
 ```
 
+The app reads `[server] port` and `[hotkey] key` from the same file; the sidecar ignores them.
+
 `prompt_file`: `~` expanded, relative to `~/Library/Application Support/SloprFlow/`, read at
-model load (so `/reload` picks up edits); missing or empty is a load error naming the path.
+model load; missing or empty is a load error naming the path.
 `prompt_role`: `"system"` sends the prompt verbatim as the system turn and the transcript as the
 user turn; `"user"` sends one user turn, the stripped prompt, a blank line, the transcript; any
 other value is a load error. Empty means the model's built-in role (ReFyne `user`, Utter
@@ -133,5 +127,5 @@ a token saved by `hf auth login`). Otherwise `/health` reports a `GatedRepoError
 
 ```sh
 uv run pytest -q && uv run ruff check . && uv run pyright
-uv run slopr-sidecar
+uv run slopr-sidecar 48123
 ```

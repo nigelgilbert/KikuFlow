@@ -60,7 +60,7 @@ import Foundation
         if process.isRunning { kill(process.processIdentifier, SIGKILL) }
     }
 
-    /// Runs `executable` and returns its stdout, and the last line it printed to stderr if it failed.
+    /// Runs `executable` and returns its stdout, and what it printed to stderr if it failed.
     private nonisolated static func run(_ executable: URL, _ arguments: [String] = []) async
         -> (output: String, error: String?) {
         await Task.detached {
@@ -73,10 +73,11 @@ import Foundation
             do { try process.run() } catch { return ("", error.localizedDescription) }
             // Both commands print little to stdout, so draining stderr first can't block on a full pipe.
             let errors = String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             let output = String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
             process.waitUntilExit()
             guard process.terminationStatus != 0 else { return (output, nil) }
-            return (output, errors.split(whereSeparator: \.isNewline).last.map(String.init) ?? "Setup failed")
+            return (output, errors.isEmpty ? "Setup failed" : errors)
         }.value
     }
 
@@ -108,11 +109,9 @@ import Foundation
     }
 
     private func poll(_ process: Process) async {
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         while process.isRunning {
             if let (data, _) = try? await URLSession.shared.data(from: base.appending(path: "health")),
-               let health = try? decoder.decode(Health.self, from: data) {
+               let health = try? JSONDecoder().decode(Health.self, from: data) {
                 if health.ready {
                     restarts = 0
                     status = .ready

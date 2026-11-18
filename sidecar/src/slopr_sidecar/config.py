@@ -1,4 +1,4 @@
-"""Config from ~/Library/Application Support/SloprFlow/config.toml, with the plan's defaults."""
+"""Config from ~/Library/Application Support/SloprFlow/config.toml."""
 
 import json
 import tomllib

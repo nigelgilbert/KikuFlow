@@ -41,13 +41,12 @@ enum Config {
     @MainActor static func openLog() { open(log, creatingWith: "") }
     @MainActor static func openErrors() { open(errors, creatingWith: "") }
 
-    /// Opens `url`, first writing `contents` to it if it is missing, in TextEdit if no app claims it.
     @MainActor private static func open(_ url: URL, creatingWith contents: String) {
         if !FileManager.default.fileExists(atPath: url.path) {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             try? contents.write(to: url, atomically: true, encoding: .utf8)
         }
-        if !NSWorkspace.shared.open(url) {
+        if !NSWorkspace.shared.open(url) {  // no app claims the file type
             NSWorkspace.shared.open([url], withApplicationAt: URL(filePath: "/System/Applications/TextEdit.app"),
                                     configuration: NSWorkspace.OpenConfiguration())
         }
