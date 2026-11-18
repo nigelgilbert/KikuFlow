@@ -1,6 +1,7 @@
 """Config from ~/Library/Application Support/SloprFlow/config.toml."""
 
 import json
+import sys
 import tomllib
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
@@ -49,5 +50,10 @@ def load_config(path: Path = APP_DIR / "config.toml") -> Config:
 
 
 def main() -> None:
-    """Print the config as one line of JSON, for the app; a bad config raises."""
-    print(json.dumps(asdict(load_config())))
+    """Print the config as one line of JSON, for the app; a bad config exits with one line."""
+    try:
+        print(json.dumps(asdict(load_config())))
+    except tomllib.TOMLDecodeError as e:
+        sys.exit(f"config line {e.lineno}: {e.msg}")
+    except TypeError as e:
+        sys.exit(str(e))

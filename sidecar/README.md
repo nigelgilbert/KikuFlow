@@ -29,9 +29,9 @@ $ "$HOME/Library/Application Support/SloprFlow/venv/bin/slopr-config"
 ```
 
 On a config it can't read (not valid TOML, or a value of the wrong type) it exits non-zero with
-a traceback on stderr whose last line is the error, such as
-`TypeError: config port must be int, got '9000'`. The app shows that line and does not start
-the sidecar.
+one line on stderr, such as `config port must be int, got '9000'` or
+`config line 3: Expected '=' after a key in a key/value pair`. The app shows that line and does
+not start the sidecar.
 
 In `slopr-sidecar` the config is read only by the model loader, so a broken config shows up as a
 `/health` error instead of a crash. The process stays in the foreground, logs to stderr, and exits by itself

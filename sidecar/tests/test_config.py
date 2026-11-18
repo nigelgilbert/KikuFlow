@@ -1,5 +1,4 @@
 import json
-import tomllib
 from pathlib import Path
 
 import pytest
@@ -95,9 +94,19 @@ def test_main_prints_the_config_as_one_line_of_json(
     assert (config["port"], config["hotkey_key"]) == (9000, "fn")
 
 
-def test_main_raises_on_invalid_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ("[stt]\n\nport 9000\n", "config line 3: Expected '=' after a key in a key/value pair"),
+        ('[server]\nport = "9000"\n', "config port must be int, got '9000'"),
+    ],
+)
+def test_main_exits_with_one_line_on_a_bad_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, text: str, message: str
+):
     path = tmp_path / "config.toml"
-    path.write_text("[server\nport = 9000\n")
+    path.write_text(text)
     monkeypatch.setattr(load_config, "__defaults__", (path,))
-    with pytest.raises(tomllib.TOMLDecodeError):
+    with pytest.raises(SystemExit) as exit:
         main()
+    assert exit.value.code == message
