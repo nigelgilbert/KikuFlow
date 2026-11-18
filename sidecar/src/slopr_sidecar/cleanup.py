@@ -19,7 +19,6 @@ UTTER = "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
 
 
 def _refyne_prompt() -> str:
-    # Frozen prompt shipped in the model repo.
     return Path(hf_hub_download(REFYNE, "system_v2.txt")).read_text(encoding="utf-8")
 
 
@@ -29,7 +28,7 @@ def _utter_prompt() -> str:
     return Path(__file__).with_name("utter_system.txt").read_text(encoding="utf-8")
 
 
-# Each built-in model was trained on one exact prompt: how to get it, and where it goes.
+# Each built-in model was trained on one exact prompt, sent in one chat role.
 PRESETS: dict[str, tuple[Callable[[], str], str]] = {
     REFYNE: (_refyne_prompt, "user"),
     UTTER: (_utter_prompt, "system"),
@@ -64,7 +63,6 @@ def build_messages(model: str, prompt_file: str, prompt_role: str) -> Callable[[
     else:
         raise ValueError(f"unsupported cleanup.model {model!r}: set cleanup.prompt_file to use it")
     if prompt_role == "user":
-        # One user turn, no system role.
         prompt = prompt.strip()
         return lambda raw: [{"role": "user", "content": f"{prompt}\n\n{raw}"}]
     # Verbatim, final newline included.

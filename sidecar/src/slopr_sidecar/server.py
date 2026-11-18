@@ -1,4 +1,4 @@
-"""HTTP server: loads the models in the background and serves /health, /transcribe, /reload."""
+"""HTTP server: loads the models in the background and serves /health and /transcribe."""
 
 import asyncio
 import logging
@@ -112,7 +112,6 @@ def run(audio: np.ndarray) -> tuple[dict, Callable[[], None]]:
 
 
 def process(m: Models, audio: np.ndarray) -> dict:
-    """Speech recognition, the cleanup model and the hooks around them."""
     start = time.perf_counter()
     # A tap shorter than 0.1 s holds no speech.
     with labelled("speech recognition"):
@@ -137,7 +136,6 @@ def process(m: Models, audio: np.ndarray) -> dict:
 
 
 def after_reply(hooks: Hooks, text: str) -> None:
-    """Fire on_sent, log the text it leaves, then fire on_done; a failure stops the rest."""
     try:
         text = fire(hooks, "on_sent", text)
         if not text:
@@ -165,12 +163,6 @@ async def transcribe(request: Request, tasks: BackgroundTasks) -> dict:
     return reply
 
 
-@app.post("/reload")
-async def reload() -> dict:
-    start_loading()
-    return await health()
-
-
 def exit_when_orphaned() -> None:
     """Exit once the launching app is gone (crash or force quit), freeing the port and memory."""
     parent = os.getppid()
@@ -180,7 +172,5 @@ def exit_when_orphaned() -> None:
 
 
 def main() -> None:
-    """`slopr-sidecar [PORT]`: the app passes PORT; run by hand, it comes from the config."""
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else load_config().port
     threading.Thread(target=exit_when_orphaned, daemon=True).start()
-    uvicorn.run(app, host="127.0.0.1", port=port)
+    uvicorn.run(app, host="127.0.0.1", port=int(sys.argv[1]))

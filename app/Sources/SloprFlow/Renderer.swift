@@ -16,7 +16,7 @@ enum HUDState: Equatable {
         var phase = Phase.listening
         var levels = [Float](repeating: 0, count: 32)
         var width: CGFloat = 185  // of the listening pill: the notch's, or its usual width without one
-        var nudge: CGFloat = 0  // the fraction of a point that the panel's frame can't hold
+        var nudge: CGFloat = 0
     }
 
     private let model = Model()
@@ -77,19 +77,20 @@ enum HUDState: Equatable {
 
 private struct HUDView: View {
     let model: BuiltinRenderer.Model
+    private let bar: CGFloat = 3, gap: CGFloat = 3, padding: CGFloat = 16
 
     var body: some View {
         Group {
             switch model.phase {
             case .listening:
-                // The newest bars that fit: each is 3 wide with a gap of 3, inside 16 of padding a side.
-                let bars = model.levels.suffix(max(0, Int((model.width - 32 + 3) / 6)))
-                HStack(spacing: 3) {
+                let width = model.width - 2 * padding
+                let bars = model.levels.suffix(max(0, Int((width + gap) / (bar + gap))))
+                HStack(spacing: gap) {
                     ForEach(bars.indices, id: \.self) { i in
-                        Capsule().frame(width: 3, height: 3 + CGFloat(bars[i]) * 21)
+                        Capsule().frame(width: bar, height: 3 + CGFloat(bars[i]) * 21)
                     }
                 }
-                .frame(width: model.width - 32, height: 24)
+                .frame(width: width, height: 24)
                 .animation(.linear(duration: 0.08), value: model.levels)
             case .thinking:
                 ProgressView().controlSize(.small).frame(height: 24)
@@ -97,7 +98,7 @@ private struct HUDView: View {
                 Text(message).lineLimit(3).multilineTextAlignment(.center)
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, padding)
         .padding(.vertical, 10)
         .background(.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 18))
         .foregroundStyle(.white)

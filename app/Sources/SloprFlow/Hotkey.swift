@@ -3,7 +3,6 @@ import CoreGraphics
 import IOKit.hidsystem
 
 @MainActor final class Hotkey {
-    /// A modifier key: its keycode and the flag bit that is set while it is held.
     struct Key: Equatable {
         let title: String
         let code: Int
@@ -11,7 +10,6 @@ import IOKit.hidsystem
 
         static let rightOption = Key(title: "Right Option", code: kVK_RightOption, mask: NX_DEVICERALTKEYMASK)
 
-        /// The names `[hotkey] key` takes in the config.
         static let named = [
             "fn": Key(title: "Fn", code: kVK_Function, mask: NX_SECONDARYFNMASK),
             "left_option": Key(title: "Left Option", code: kVK_Option, mask: NX_DEVICELALTKEYMASK),

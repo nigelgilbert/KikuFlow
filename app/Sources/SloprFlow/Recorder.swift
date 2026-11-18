@@ -26,7 +26,6 @@ import Synchronization
     }
 }
 
-/// Collects captured buffers as 16 kHz mono float32.
 final class Sink: Sendable {
     private let state: Mutex<(converter: AVAudioConverter, samples: [Float])>
 
