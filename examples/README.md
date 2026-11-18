@@ -25,9 +25,11 @@ def on_logged(u) -> None              # after the text has been sent to be paste
 A hook that returns a string replaces `u.text`; returning `None` leaves it alone. Returning `""`
 stops the dictation: nothing is cleaned, pasted or logged after it. A hook that raises, or a hook
 file that fails to import, is skipped with its traceback on the sidecar's stderr; the dictation
-still completes.
+still completes. To see that output, quit Slopr Flow and start its binary from Terminal, for a
+build from this repo `"app/build/Slopr Flow.app/Contents/MacOS/SloprFlow"`.
 
-Put your hook files in `~/Library/Application Support/SloprFlow/hooks/`. The built-in ones ship
+Put your hook files in `~/Library/Application Support/SloprFlow/hooks/`, a folder you create
+(`mkdir -p ~/Library/Application\ Support/SloprFlow/hooks`). The built-in ones ship
 with the sidecar in `sidecar/src/slopr_sidecar/hooks/`, and a file of yours with the same name
 replaces the built-in one. All hook files load in filename order, and the hooks for one point
 run in that order, each seeing the text the previous one left. Hook files are read when the
@@ -41,7 +43,7 @@ cleanup model sees them.
 ```python
 import re
 
-WORDS = {"slopper": "Slopr", "jason": "JSON", "mac os": "macOS"}
+WORDS = {"slopper": "Slopr", "jason": "JSON", "mac os": "macOS"}  # keys in lower case
 PATTERN = re.compile(r"\b(" + "|".join(map(re.escape, WORDS)) + r")\b", re.IGNORECASE)
 
 
@@ -66,7 +68,8 @@ call it with `u.text` in `on_cleaned`.
 ## Overriding the cleanup
 
 `verbatim.py` pastes what you said, word for word, when you start with "verbatim". It reads
-`u.raw`, so it also undoes any earlier hook's changes.
+`u.raw`, so it also undoes any earlier hook's changes. Hook files that sort after it, like
+`voice.py`, still run on its result.
 
 ```python
 def on_cleaned(u):
@@ -88,7 +91,7 @@ LOG = APP_DIR / "log.txt"
 
 
 def on_logged(u):
-    old = LOG.read_text("utf-8").split("\n\n") if LOG.exists() else []
+    old = LOG.read_text("utf-8").strip().split("\n\n") if LOG.exists() else []
     entry = f"{u.at:%Y-%m-%d %H:%M}  {' '.join(u.text.split())}"
     LOG.write_text("\n\n".join([*filter(None, old), entry][-1000:]), "utf-8")
 ```
@@ -96,5 +99,6 @@ def on_logged(u):
 An empty `log.py` turns the log off:
 
 ```sh
+mkdir -p ~/Library/Application\ Support/SloprFlow/hooks
 touch ~/Library/Application\ Support/SloprFlow/hooks/log.py
 ```
