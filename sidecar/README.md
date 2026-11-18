@@ -74,8 +74,8 @@ Re-reads `config.toml` and reloads the models in the background. Returns the `/h
 
 ```toml
 [stt]
-engine = "parakeet"   # or "whisper" (mlx-whisper, e.g. model = "mlx-community/whisper-large-v3-turbo")
-model = "mlx-community/parakeet-tdt-0.6b-v3"
+engine = "parakeet"   # or "whisper" (mlx-whisper)
+model = "mlx-community/parakeet-tdt-0.6b-v3"   # with "whisper": "mlx-community/whisper-large-v3-turbo"
 
 [cleanup]
 enabled = true

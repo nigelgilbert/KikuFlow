@@ -17,4 +17,14 @@ def test_missing_file_gives_defaults(tmp_path: Path):
 def test_partial_file_overrides_only_named_keys(tmp_path: Path):
     path = tmp_path / "config.toml"
     path.write_text('[stt]\nengine = "whisper"\n\n[cleanup]\nenabled = false\n')
-    assert load_config(path) == Config(stt_engine="whisper", cleanup_enabled=False)
+    assert load_config(path) == Config(
+        stt_engine="whisper",
+        stt_model="mlx-community/whisper-large-v3-turbo",
+        cleanup_enabled=False,
+    )
+
+
+def test_explicit_stt_model_wins_over_engine_default(tmp_path: Path):
+    path = tmp_path / "config.toml"
+    path.write_text('[stt]\nengine = "whisper"\nmodel = "mlx-community/whisper-tiny"\n')
+    assert load_config(path).stt_model == "mlx-community/whisper-tiny"
