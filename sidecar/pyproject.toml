@@ -1,0 +1,33 @@
+[project]
+name = "slopr-sidecar"
+version = "0.1.0"
+description = "Local transcription and cleanup server for Slopr Flow"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "fastapi",
+    "mlx-lm",
+    "mlx-whisper",
+    "numpy",
+    "parakeet-mlx",
+    "uvicorn",
+]
+
+[project.scripts]
+slopr-sidecar = "slopr_sidecar.server:main"
+
+[dependency-groups]
+dev = ["httpx", "pyright", "pytest", "ruff"]
+
+[build-system]
+requires = ["uv_build>=0.9,<0.14"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
