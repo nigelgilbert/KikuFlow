@@ -26,11 +26,8 @@ def load_hooks(directory: Path) -> Hooks:
     """The hooks of every *.py in `directory`, in filename order."""
     hooks: Hooks = {point: [] for point in (*POINTS, "on_error")}
     for path in sorted(directory.glob("*.py")):
-        try:
+        with labelled(f"hook file {path.name}"):
             names = runpy.run_path(str(path))
-        except Exception:
-            log.exception("hook file %s failed to load", path)
-            continue
         for point in hooks:
             if point in names:
                 hooks[point].append((path, names[point]))

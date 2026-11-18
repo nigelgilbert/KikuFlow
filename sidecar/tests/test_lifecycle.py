@@ -46,15 +46,13 @@ def test_missing_directory_has_no_hooks(tmp_path: Path):
     assert load_hooks(tmp_path / "missing") == {p: [] for p in (*POINTS, "on_error")}
 
 
-def test_file_failing_to_import_is_logged_and_skipped(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-):
-    write(tmp_path / "a.py", "import nonexistent_module")
-    write(tmp_path / "b.py", "def on_done(t): pass")
-    hooks = load_hooks(tmp_path)
-    assert len(hooks["on_done"]) == 1
-    assert "a.py failed to load" in caplog.text
-    assert "ModuleNotFoundError" in caplog.text
+def test_file_failing_to_import_raises_labelled(tmp_path: Path):
+    write(tmp_path / "voice.py", "import nonexistent_module")
+    with pytest.raises(ModuleNotFoundError) as info:
+        load_hooks(tmp_path)
+    assert default_message(info.value) == (
+        "hook file voice.py: ModuleNotFoundError: No module named 'nonexistent_module'"
+    )
 
 
 def test_returned_str_replaces_the_text_and_none_keeps_it():

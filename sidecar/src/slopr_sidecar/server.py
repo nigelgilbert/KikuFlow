@@ -19,7 +19,16 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 
 from .cleanup import Cleaner, accept, load_cleaner
 from .config import Config, load_config
-from .lifecycle import HOOK_DIR, Hooks, fire, labelled, load_hooks, write_log
+from .lifecycle import (
+    HOOK_DIR,
+    Hooks,
+    default_message,
+    fire,
+    labelled,
+    load_hooks,
+    report,
+    write_log,
+)
 from .stt import SAMPLE_RATE, Transcriber, decode_audio, load_transcriber
 
 log = logging.getLogger("uvicorn.error")
@@ -46,18 +55,21 @@ state = State()
 
 
 def load_models() -> None:
+    hooks = None
     try:
+        hooks = load_hooks(HOOK_DIR)  # first, so a broken hook file fails in milliseconds
         config = load_config()
         transcribe = load_transcriber(config.stt_engine, config.stt_model)
         clean = load_cleaner(config) if config.cleanup_enabled else None
-        hooks = load_hooks(HOOK_DIR)
         # One throwaway pass each, so the first dictation doesn't pay for kernel compilation.
         transcribe(np.zeros(SAMPLE_RATE, np.float32))
         if clean:
             clean("Hello there.")
     except Exception as e:
         log.exception("model load failed")
-        state.models, state.error = None, f"{type(e).__name__}: {e}"
+        # Only a hook file's failure carries a label.
+        error = default_message(e) if hooks is None else f"{type(e).__name__}: {e}"
+        state.models, state.error = None, error
         return
     state.models, state.error = Models(config, transcribe, clean, hooks), None
 
@@ -93,6 +105,15 @@ def run(audio: np.ndarray, cleanup: bool) -> tuple[dict, Callable[[], None]]:
     m = state.models
     if m is None:
         raise HTTPException(503, state.error or "models are loading")
+    try:
+        reply = process(m, audio, cleanup)
+    except Exception as e:
+        raise HTTPException(500, report(m.hooks, e)) from e
+    return reply, partial(after_reply, m.hooks, reply["clean"])
+
+
+def process(m: Models, audio: np.ndarray, cleanup: bool) -> dict:
+    """Speech recognition, the cleanup model and the hooks around them."""
     start = time.perf_counter()
     # A tap shorter than 0.1 s holds no speech.
     with labelled("speech recognition"):
@@ -106,7 +127,7 @@ def run(audio: np.ndarray, cleanup: bool) -> tuple[dict, Callable[[], None]]:
                 text = candidate
     text = fire(m.hooks, "on_cleaned", text)
     cleaned = time.perf_counter()
-    reply = {
+    return {
         "raw": raw,
         "clean": text,
         "timings": {
@@ -114,17 +135,19 @@ def run(audio: np.ndarray, cleanup: bool) -> tuple[dict, Callable[[], None]]:
             "cleanup_ms": round((cleaned - transcribed) * 1000),
         },
     }
-    return reply, partial(after_reply, m.hooks, text)
 
 
 def after_reply(hooks: Hooks, text: str) -> None:
-    """Fire on_output, log the text it leaves, then fire on_done."""
-    text = fire(hooks, "on_output", text)
-    if not text:
-        return
-    with labelled("log write"):
-        write_log(text)
-    fire(hooks, "on_done", text)
+    """Fire on_output, log the text it leaves, then fire on_done; a failure stops the rest."""
+    try:
+        text = fire(hooks, "on_output", text)
+        if not text:
+            return
+        with labelled("log write"):
+            write_log(text)
+        fire(hooks, "on_done", text)
+    except Exception as e:
+        report(hooks, e)
 
 
 async def on_executor[T](fn: Callable[[], T]) -> T:
