@@ -86,7 +86,7 @@ log in. Until then the menu shows `Access to model … is restricted`. Either:
 ## Log
 
 "Open Log…" in the menu opens `~/Library/Application Support/SloprFlow/log.txt`, the text of
-your last 100 dictations, oldest first, one paragraph each. The app always keeps it; an
+your last 100 dictations, oldest first, one line each. The app always keeps it; an
 `on_output` hook (below) can change what an entry says or keep a dictation out.
 
 ## Lifecycle hooks

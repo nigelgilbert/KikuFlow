@@ -33,8 +33,8 @@ also fires when cleanup is off. Once the text is empty, nothing further runs: `"
 dictation stays out of the log and `on_done` does not fire.
 
 "Output" is the sidecar handing the text to the app, which pastes it. `on_output`, the log and
-`on_done` run after that, so they don't delay the paste, and `on_output` cannot change what is
-pasted.
+`on_done` run after that, so they don't delay the paste, but a slow one holds up the next
+dictation. `on_output` cannot change what is pasted.
 
 A hook that raises, or a hook file that fails to import, is skipped with its traceback on the
 sidecar's stderr; the dictation still completes. To see that output, quit Slopr Flow and start
@@ -43,8 +43,8 @@ its binary from Terminal, for a build from this repo
 
 Hook files live in one place, `~/Library/Application Support/SloprFlow/hooks/`, a folder you
 create (`mkdir -p ~/Library/Application\ Support/SloprFlow/hooks`). They load in filename order,
-and the hooks for one point run in that order, each seeing the text the previous one left. Hooks
-run one dictation at a time, so a hook file can keep state between its own hooks in module
+and the hooks for one point run in that order, each seeing the text the previous one left. The
+app sends one dictation at a time, so a hook file can keep state between its own hooks in module
 variables. Hook files are read when the sidecar loads its models, so after an edit choose
 "Restart Slopr Flow" in the menu.
 
@@ -82,7 +82,8 @@ call it with `t` in `on_cleaned`.
 
 `verbatim.py` pastes what you said, word for word, when you start with "verbatim". It keeps the
 transcript in a variable of its own in `on_transcribed` and decides in `on_cleaned`. Hook files
-that sort after it, like `voice.py`, still run on its result.
+that sort after it, like `voice.py`, still run on its result. `vocabulary.py` also sorts after
+it, so the transcript it keeps, and pastes, does not have the vocabulary fixes.
 
 ```python
 raw = ""
@@ -128,22 +129,25 @@ from datetime import datetime
 
 
 def on_output(t):
-    return f"{datetime.now():%H:%M}  {t}"
+    return f"{datetime.now():%H:%M} {t}"
 ```
 
 `private.py` keeps a dictation that starts with "private" out of the log. It is still pasted.
 
 ```python
+import re
+
+
 def on_output(t):
-    if t.lower().startswith("private"):
+    if re.match(r"private\b", t, re.IGNORECASE):
         return ""
 ```
 
 ## Your own archive
 
 `on_done` fires once the log entry has been written and gets the text that was logged.
-`archive.py` keeps every dictation, with the date and time, in a file of your own that never
-drops old entries.
+`archive.py` keeps every logged dictation, with the date and time, in a file of your own that
+never drops old entries.
 
 ```python
 from datetime import datetime
