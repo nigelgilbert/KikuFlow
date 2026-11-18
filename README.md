@@ -83,6 +83,20 @@ log in. Until then the menu shows `Access to model … is restricted`. Either:
 - set `[cleanup] model = "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"`, which is
   not gated.
 
+## Log
+
+"Open Log…" in the menu opens `~/Library/Application Support/SloprFlow/log.txt`, the text of
+your last 100 dictations, oldest first, one paragraph each.
+
+## Lifecycle hooks
+
+The text passes through three hooks you can write in plain Python: `on_transcribed` after speech
+recognition, `on_cleaned` after the cleanup model, `on_logged` after the paste. Put hook files in
+`~/Library/Application Support/SloprFlow/hooks/` and choose "Restart Slopr Flow". The log above
+is the built-in `log.py` hook file; a `log.py` of your own replaces it. See
+[examples/README.md](examples/README.md) for vocabulary fixes, a different voice and a
+different log.
+
 ## Licenses and attributions
 
 - Speech recognition: [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)

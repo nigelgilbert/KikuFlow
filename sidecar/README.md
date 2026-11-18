@@ -58,7 +58,18 @@ Body: one utterance, 16 kHz mono, either
 ```
 
 `clean` equals `raw` when cleanup is off (query or config), when the cleanup output fails the
-safety check, or when nothing was said. Audio under 0.1 s returns empty strings. Paste `clean`.
+safety check, or when nothing was said, unless a hook changed it. Audio under 0.1 s returns
+empty strings. Paste `clean`.
+
+Lifecycle hooks run on the text in between: `on_transcribed` after speech recognition (the
+cleanup model gets its result), `on_cleaned` after the cleanup stage, also when cleanup is off,
+and `on_logged` after the response has been sent, so it never delays the paste. `raw` is always
+the speech recognition output. Once the text is empty, no further hook runs. Hook files are the
+`*.py` files in `src/slopr_sidecar/hooks/` (built-in) and in
+`~/Library/Application Support/SloprFlow/hooks/`, where a file replaces the built-in of the
+same name. They load with the models, so `/reload` re-reads them; one that fails to import is
+skipped and does not set `/health`'s `error`. The built-in `log.py` keeps the last 100 texts in
+`~/Library/Application Support/SloprFlow/log.txt`. Examples: `examples/README.md`.
 
 Errors: `400` malformed audio, `503` models not loaded (`detail` holds the reason). Requests
 are processed one at a time; one sent while models load waits for them.
