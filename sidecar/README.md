@@ -123,9 +123,9 @@ port = 48123
 key = "right_option"
 ```
 
-`slopr-config` prints `[server] port` and `[hotkey] key` for the app; the sidecar itself ignores
-them and takes the port as its argument. `key` is not checked here; the app falls back to Right
-Option for a name it doesn't know.
+`slopr-config` prints `[server] port` and `[hotkey] key` for the app; the sidecar itself doesn't
+use them and takes the port as its argument. `key` is not checked here; the app falls back to
+Right Option for a name it doesn't know.
 
 `prompt_file`: `~` expanded, relative to `~/Library/Application Support/SloprFlow/`, read at
 model load; missing or empty is a load error naming the path.
