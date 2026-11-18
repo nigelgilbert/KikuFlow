@@ -16,7 +16,6 @@ RAW = "um so we should uh meet on Friday"
 # A hook file that appends each call, and whether log.txt exists yet, to calls.txt next to it,
 # after the other hook files.
 RECORDER = """
-import asyncio
 import threading
 from pathlib import Path
 
@@ -205,7 +204,7 @@ def test_hook_returning_empty_text_stops_the_pipeline(
     assert calls(hooks) == []
 
 
-def test_run_leaves_on_done_for_after_the_reply(hooks: Path, client: TestClient):
+def test_run_leaves_on_output_and_on_done_for_after_the_reply(hooks: Path, client: TestClient):
     wait_for_load()
     audio = np.zeros(16_000, "<f4")
     _, after = server.executor.submit(server.run, audio, True).result()
