@@ -1,7 +1,7 @@
 # Slopr Flow sidecar
 
 Local HTTP server that turns dictated audio into raw and cleaned text. Listens on
-`127.0.0.1:<server.port>` (default `48123`). JSON responses.
+`127.0.0.1` on the port given at launch (see below). JSON responses.
 
 ## Install and launch
 
@@ -13,13 +13,17 @@ From the app bundle, keep `scripts/` and `sidecar/` side by side and run once pe
 ```
 
 It exits non-zero with a message on stderr if `uv` is missing. It creates
-`~/Library/Application Support/SloprFlow/venv` with the pinned Python. Start the server with:
+`~/Library/Application Support/SloprFlow/venv` with the pinned Python. Start the server as a
+child process, passing the port as the only argument:
 
 ```sh
-"$HOME/Library/Application Support/SloprFlow/venv/bin/slopr-sidecar"
+"$HOME/Library/Application Support/SloprFlow/venv/bin/slopr-sidecar" 48123
 ```
 
-The process stays in the foreground and logs to stderr. Kill it to stop it.
+Without the argument (run by hand) the port comes from `server.port` in the config. With it,
+the config is read only by the model loader, so a broken config shows up as a `/health` error
+instead of a crash. The process stays in the foreground, logs to stderr, and exits by itself
+within a second if its parent process dies. Kill it to stop it.
 
 ## Endpoints
 
@@ -62,7 +66,7 @@ are processed one at a time; one sent while models load waits for them.
 ### `POST /reload`
 
 Re-reads `config.toml` and reloads the models in the background. Returns the `/health` body
-(`ready` false); poll `/health` until ready. `server.port` takes effect only on restart.
+(`ready` false); poll `/health` until ready. The port never changes without a restart.
 
 ## Config
 

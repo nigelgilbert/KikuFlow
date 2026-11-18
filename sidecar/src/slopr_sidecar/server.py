@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import sys
 import threading
 import time
 import wave
@@ -130,5 +131,7 @@ def exit_when_orphaned() -> None:
 
 
 def main() -> None:
+    """`slopr-sidecar [PORT]`: the app passes PORT; run by hand, it comes from the config."""
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else load_config().port
     threading.Thread(target=exit_when_orphaned, daemon=True).start()
-    uvicorn.run(app, host="127.0.0.1", port=load_config().port)
+    uvicorn.run(app, host="127.0.0.1", port=port)
