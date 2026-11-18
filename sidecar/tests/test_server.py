@@ -412,6 +412,8 @@ def test_hook_returning_a_wrong_type_after_the_reply_is_recorded(
     message = f"{point} in a.py: TypeError: {point} returned dict, not str or None"
     assert errors(tmp_path) == [message]
     assert (tmp_path / "log.txt").exists() == (point == "on_done")
+    ran = ["on_transcribed", "on_cleaned", *(["on_sent"] if point == "on_done" else [])]
+    assert [c[0] for c in calls(hooks)] == ran
 
 
 def test_on_done_returning_a_string_changes_nothing(
