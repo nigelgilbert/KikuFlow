@@ -116,7 +116,8 @@ def run(audio: np.ndarray, cleanup: bool) -> tuple[dict, Callable[[], None]]:
 
 
 def after_reply(hooks: Hooks, text: str) -> None:
-    """Write the log entry, then fire on_done."""
+    """Fire on_output, log the text it leaves, then fire on_done."""
+    text = fire(hooks, "on_output", text)
     if not text:
         return
     try:

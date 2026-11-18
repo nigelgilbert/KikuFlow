@@ -28,7 +28,7 @@ def test_loads_hooks_in_filename_order(tmp_path: Path):
     write(tmp_path / "b.py", "def on_cleaned(t): return t + ' b'")
     write(tmp_path / "a.py", "def on_cleaned(t): return t + ' a'\ndef on_done(t): pass")
     hooks = load_hooks(tmp_path)
-    assert [len(hooks[p]) for p in POINTS] == [0, 2, 1]
+    assert [len(hooks[p]) for p in POINTS] == [0, 2, 0, 1]
     assert fire(hooks, "on_cleaned", "hello") == "hello a b"
 
 

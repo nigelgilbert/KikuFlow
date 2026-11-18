@@ -1,4 +1,4 @@
-"""The on_transcribed, on_cleaned and on_done hooks of plain .py files, and the log."""
+"""The on_* hooks of plain .py files, and the log."""
 
 import logging
 import runpy
@@ -9,7 +9,7 @@ from .config import APP_DIR
 
 log = logging.getLogger("uvicorn.error")
 
-POINTS = ("on_transcribed", "on_cleaned", "on_done")
+POINTS = ("on_transcribed", "on_cleaned", "on_output", "on_done")
 HOOK_DIR = APP_DIR / "hooks"
 LOG = APP_DIR / "log.txt"
 
