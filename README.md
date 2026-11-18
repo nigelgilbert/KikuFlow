@@ -110,7 +110,7 @@ the text is pasted also shows in the HUD, and nothing is pasted. The app always 
 ## Lifecycle hooks
 
 Hooks are plain Python functions that change the text after each step of a dictation, or the
-message of a failure. Put hook files in `~/Library/Application Support/SloprFlow/hooks/`; see
+message of a failure. Put hook files in `hooks/` in this repo; see
 [examples/README.md](examples/README.md).
 
 ## Licenses and attributions

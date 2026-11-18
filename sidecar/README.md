@@ -68,8 +68,9 @@ gets its result), the log and `on_done`. Those three do not delay the reply, but
 model thread, so a slow hook holds up the next dictation. `raw` is always the speech recognition
 output. Once the text is empty, nothing further runs, the log included. The log is always written,
 by the sidecar itself: the last 100 texts in `~/Library/Application Support/SloprFlow/log.txt`, one
-line each. Hook files are the `*.py` files in `~/Library/Application Support/SloprFlow/hooks/`. They
-load before the models, so `/reload` re-reads them, and one that fails to import fails the load.
+line each. Hook files are the `*.py` files in `~/Library/Application Support/SloprFlow/hooks/`,
+which `app/bundle.sh` links to `hooks/` in the repo. They load before the models, so `/reload`
+re-reads them, and one that fails to import fails the load.
 Examples: `examples/README.md`.
 
 An exception from speech recognition, the cleanup model, a hook or the log write is not caught and

@@ -15,7 +15,7 @@ def on_error(e) -> str | None         # after a failure; returns the message to 
 A text hook returns a string to replace the text, nothing to leave it, or `""` to stop there.
 `on_error` returns the message, nothing for the default one, or `""` for none.
 
-Put hook files in `~/Library/Application Support/SloprFlow/hooks/`. They run in filename order.
+Put hook files in `hooks/` in this repo. They run in filename order.
 Choose "Restart Slopr Flow" after an edit.
 
 A hook that raises stops the dictation. The message goes to `errors.txt`, and to the HUD when

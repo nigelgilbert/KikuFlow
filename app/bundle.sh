@@ -31,4 +31,8 @@ EOF
 identity="Slopr Flow Dev"
 security find-certificate -c "$identity" >/dev/null 2>&1 || identity=-
 codesign --force --sign "$identity" "$app"
+# The sidecar reads hook files from Application Support; link that to hooks/ in this repo.
+support="$HOME/Library/Application Support/SloprFlow"
+mkdir -p "$support"
+ln -sfn "$(cd ../hooks && pwd)" "$support/hooks"
 echo "$PWD/$app"
