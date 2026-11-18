@@ -4,6 +4,7 @@ enum Config {
     static let dir = URL.applicationSupportDirectory.appending(path: "SloprFlow")
     static let file = dir.appending(path: "config.toml")
     static let log = dir.appending(path: "log.txt")
+    static let errors = dir.appending(path: "errors.txt")
 
     static let defaults = """
         [stt]
@@ -59,6 +60,7 @@ enum Config {
 
     @MainActor static func open() { open(file, creatingWith: defaults) }
     @MainActor static func openLog() { open(log, creatingWith: "") }
+    @MainActor static func openErrors() { open(errors, creatingWith: "") }
 
     /// Opens `url`, first writing `contents` to it if it is missing, in TextEdit if no app claims it.
     @MainActor private static func open(_ url: URL, creatingWith contents: String) {

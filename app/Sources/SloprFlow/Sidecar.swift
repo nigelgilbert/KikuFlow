@@ -27,10 +27,14 @@ import Foundation
         struct Reply: Decodable { let clean: String?; let detail: String? }
         let reply = try? JSONDecoder().decode(Reply.self, from: data)
         guard (response as? HTTPURLResponse)?.statusCode == 200, let clean = reply?.clean else {
-            throw Failure(reply?.detail ?? "The speech engine returned an error")
+            if let detail = reply?.detail { throw Detail(text: detail) }
+            throw Failure("The speech engine returned an error")
         }
         return clean
     }
+
+    /// A failed reply's `detail`, shown as it is; empty when an `on_error` hook silenced it.
+    struct Detail: Error { let text: String }
 
     func stop() {
         quitting = true
