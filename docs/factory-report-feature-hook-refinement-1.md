@@ -100,6 +100,13 @@ None. The Fix section was empty.
   `examples/README.md` are not true for failures after the reply and for `on_error`. Changing
   them means changing the plan's text.
 
+## After the run
+
+The user asked for both nits and for the two sentences behind C3 and C4 to be fixed. The
+start of `examples/README.md` now differs from the plan's block in those two sentences: the
+return rule names `on_error` separately, and a failure's message goes to the HUD only when
+nothing has been pasted yet.
+
 ## Items dropped
 
 None.
