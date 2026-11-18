@@ -3,7 +3,7 @@
 Slopr Flow runs your Python at four points of every dictation:
 
 ```
-mic → transcribe → [on_transcribed] → cleanup model → [on_cleaned] → output → [on_output] → log → [on_done]
+mic → transcribe → [on_transcribed] → cleanup model → [on_cleaned] → output → [on_sent] → log → [on_done]
 ```
 
 A **hook** is a function named after one of those points. A **hook file** is a `.py` file that
@@ -14,7 +14,7 @@ fires after its phase, and what it returns is what the next phase receives:
 |---|---|---|
 | `on_transcribed` | transcribe | the cleanup model |
 | `on_cleaned` | cleanup | the output (what the app pastes) |
-| `on_output` | output | the log |
+| `on_sent` | output | the log |
 | `on_done` | log | nothing; it only observes |
 
 Each hook gets the text as a plain string `t`, except `on_error`, the one hook that gets the
@@ -23,7 +23,7 @@ exception `e` and not the text:
 ```
 def on_transcribed(t) -> str | None   # return the text the cleanup model receives
 def on_cleaned(t) -> str | None       # return the text that is output
-def on_output(t) -> str | None        # return the text that is logged
+def on_sent(t) -> str | None        # return the text that is logged
 def on_done(t) -> None                # the dictation is finished
 def on_error(e) -> str | None         # return the message for a failure
 ```
@@ -31,20 +31,20 @@ def on_error(e) -> str | None         # return the message for a failure
 A hook that returns a string replaces the text; returning `None` leaves it alone, so a hook that
 only looks needs no `return`. A hook you don't define behaves like `lambda t: t`. `on_cleaned`
 also fires when cleanup is off. Once the text is empty, nothing further runs: `""` from
-`on_transcribed` or `on_cleaned` means nothing is pasted or logged, and from `on_output` that the
+`on_transcribed` or `on_cleaned` means nothing is pasted or logged, and from `on_sent` that the
 dictation stays out of the log and `on_done` does not fire.
 
-"Output" is the sidecar handing the text to the app, which pastes it. `on_output`, the log and
+"Output" is the sidecar handing the text to the app, which pastes it. `on_sent`, the log and
 `on_done` run after that, so they don't delay the paste, but a slow one holds up the next
-dictation. `on_output` cannot change what is pasted.
+dictation. `on_sent` cannot change what is pasted.
 
 A failure is loud. When speech recognition, the cleanup model, a hook or the log write raises,
 nothing after it runs, and the message, such as `on_cleaned in voice.py:3: KeyError: 'x'`, goes
 into `~/Library/Application Support/SloprFlow/errors.txt` ("Open Errors…" in the menu), which
 keeps the last 50 with the time in front. Before the reply (speech recognition,
 `on_transcribed`, the cleanup model, `on_cleaned`) nothing is pasted and the HUD shows the
-message. After it (`on_output`, the log, `on_done`) the text is already pasted and the rest is
-skipped: a failing `on_output` means no log entry and no `on_done`. A hook file that fails to
+message. After it (`on_sent`, the log, `on_done`) the text is already pasted and the rest is
+skipped: a failing `on_sent` means no log entry and no `on_done`. A hook file that fails to
 import stops the models loading, and the menu shows the warning triangle with
 `hook file voice.py: …`. The full traceback goes to the sidecar's stderr; to see it, quit Slopr
 Flow and start its binary from Terminal, for a build from this repo
@@ -114,7 +114,7 @@ def on_cleaned(t):
 
 The app always keeps your last 100 dictations in
 `~/Library/Application Support/SloprFlow/log.txt` ("Open Log…" in the menu), one line each. An
-entry is the text that was output, unless an `on_output` hook returns something else.
+entry is the text that was output, unless an `on_sent` hook returns something else.
 
 `raw_log.py` logs what you said instead of the cleaned text:
 
@@ -127,7 +127,7 @@ def on_transcribed(t):
     raw = t
 
 
-def on_output(t):
+def on_sent(t):
     return raw
 ```
 
@@ -138,7 +138,7 @@ holds the time and what you said.
 from datetime import datetime
 
 
-def on_output(t):
+def on_sent(t):
     return f"{datetime.now():%H:%M} {t}"
 ```
 
@@ -148,7 +148,7 @@ def on_output(t):
 import re
 
 
-def on_output(t):
+def on_sent(t):
     if re.match(r"private\b", t, re.IGNORECASE):
         return ""
 ```

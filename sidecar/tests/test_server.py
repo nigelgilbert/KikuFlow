@@ -26,7 +26,7 @@ def record(point, t):
 
 def on_transcribed(t): record("on_transcribed", t)
 def on_cleaned(t): record("on_cleaned", t)
-def on_output(t): record("on_output", t)
+def on_sent(t): record("on_sent", t)
 def on_done(t): record("on_done", t)
 """
 
@@ -220,10 +220,10 @@ def test_hooks_shape_the_text_around_cleanup(
     assert [c[:2] for c in calls(hooks)] == [
         ["on_transcribed", "please call Anna tomorrow"],
         ["on_cleaned", "Please call Anna tomorrow.!"],
-        ["on_output", "Please call Anna tomorrow.!"],
+        ["on_sent", "Please call Anna tomorrow.!"],
         ["on_done", "Please call Anna tomorrow.!"],
     ]
-    # The recorder's on_output returns None, so the text that was output is logged.
+    # The recorder's on_sent returns None, so the text that was sent is logged.
     assert (tmp_path / "log.txt").read_text() == "Please call Anna tomorrow.!"
 
 
@@ -250,20 +250,20 @@ def test_hook_returning_empty_text_stops_the_pipeline(
     assert calls(hooks) == []
 
 
-def test_run_leaves_on_output_and_on_done_for_after_the_reply(hooks: Path, client: TestClient):
+def test_run_leaves_on_sent_and_on_done_for_after_the_reply(hooks: Path, client: TestClient):
     wait_for_load()
     audio = np.zeros(16_000, "<f4")
     _, after = server.executor.submit(server.run, audio, True).result()
     assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned"]
     after()
-    assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", "on_output", "on_done"]
+    assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", "on_sent", "on_done"]
 
 
 def test_hooks_after_the_reply_fire_once_on_the_model_executor(hooks: Path, client: TestClient):
     client.post("/transcribe", content=SPEECH)
-    after = [c for c in calls(hooks) if c[0] in ("on_output", "on_done")]
+    after = [c for c in calls(hooks) if c[0] in ("on_sent", "on_done")]
     executor = server.executor.submit(lambda: threading.current_thread().name).result()
-    assert [(c[0], c[2]) for c in after] == [("on_output", executor), ("on_done", executor)]
+    assert [(c[0], c[2]) for c in after] == [("on_sent", executor), ("on_done", executor)]
 
 
 def test_hook_file_failing_to_import_fails_the_load_before_the_models(
@@ -279,7 +279,7 @@ def test_hook_file_failing_to_import_fails_the_load_before_the_models(
     assert errors(tmp_path) == []
 
 
-def test_reply_is_sent_before_on_output(hooks: Path, client: TestClient):
+def test_reply_is_sent_before_on_sent(hooks: Path, client: TestClient):
     wait_for_load()
     at_reply = []
 
@@ -311,12 +311,12 @@ def test_log_py_is_just_another_hook_file(hooks: Path, tmp_path: Path, client: T
     assert calls(hooks)[-1][0] == "on_done"
 
 
-def test_on_output_fires_before_the_log_is_written_and_on_done_after(
+def test_on_sent_fires_before_the_log_is_written_and_on_done_after(
     hooks: Path, client: TestClient
 ):
     client.post("/transcribe", content=SPEECH)
     assert [[c[0], c[3]] for c in calls(hooks)][-2:] == [
-        ["on_output", "False"],
+        ["on_sent", "False"],
         ["on_done", "True"],
     ]
 
@@ -328,23 +328,23 @@ def test_failed_log_write_is_recorded_and_stops_on_done(
     assert client.post("/transcribe", content=SPEECH).status_code == 200
     [entry] = errors(tmp_path)
     assert entry.startswith("log write: FileNotFoundError: ")
-    assert calls(hooks)[-1][0] == "on_output"
+    assert calls(hooks)[-1][0] == "on_sent"
 
 
-def test_on_output_decides_what_is_logged_but_not_the_reply(
+def test_on_sent_decides_what_is_logged_but_not_the_reply(
     hooks: Path, tmp_path: Path, client: TestClient
 ):
-    (hooks / "a.py").write_text("def on_output(t): return t.upper()\n")
+    (hooks / "a.py").write_text("def on_sent(t): return t.upper()\n")
     client.post("/reload")
     assert client.post("/transcribe", content=SPEECH).json()["clean"] == "We should meet on Friday."
     assert (tmp_path / "log.txt").read_text() == "WE SHOULD MEET ON FRIDAY."
     assert calls(hooks)[-1][:2] == ["on_done", "WE SHOULD MEET ON FRIDAY."]
 
 
-def test_on_output_returning_empty_text_skips_the_log_and_on_done(
+def test_on_sent_returning_empty_text_skips_the_log_and_on_done(
     hooks: Path, tmp_path: Path, client: TestClient
 ):
-    (hooks / "a.py").write_text("def on_output(t): return ''\n")
+    (hooks / "a.py").write_text("def on_sent(t): return ''\n")
     client.post("/reload")
     assert client.post("/transcribe", content=SPEECH).json()["clean"] == "We should meet on Friday."
     assert not (tmp_path / "log.txt").exists()
@@ -393,7 +393,7 @@ def test_model_failing_gives_500_with_its_label(
 
 @pytest.mark.parametrize(
     ("point", "run"),
-    [("on_output", ["on_output"]), ("on_done", ["on_output", "on_done"])],
+    [("on_sent", ["on_sent"]), ("on_done", ["on_sent", "on_done"])],
 )
 def test_hook_failing_after_the_reply_is_recorded_and_stops_the_rest(
     hooks: Path, tmp_path: Path, client: TestClient, point: str, run: list[str]

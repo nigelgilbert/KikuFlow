@@ -138,9 +138,9 @@ def process(m: Models, audio: np.ndarray, cleanup: bool) -> dict:
 
 
 def after_reply(hooks: Hooks, text: str) -> None:
-    """Fire on_output, log the text it leaves, then fire on_done; a failure stops the rest."""
+    """Fire on_sent, log the text it leaves, then fire on_done; a failure stops the rest."""
     try:
-        text = fire(hooks, "on_output", text)
+        text = fire(hooks, "on_sent", text)
         if not text:
             return
         with labelled("log write"):

@@ -13,7 +13,7 @@ from .config import APP_DIR
 
 log = logging.getLogger("uvicorn.error")
 
-POINTS = ("on_transcribed", "on_cleaned", "on_output", "on_done")
+POINTS = ("on_transcribed", "on_cleaned", "on_sent", "on_done")
 HOOK_DIR = APP_DIR / "hooks"
 LOG = APP_DIR / "log.txt"
 ERRORS = APP_DIR / "errors.txt"

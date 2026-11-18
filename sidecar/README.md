@@ -66,7 +66,7 @@ empty strings. Paste `clean`.
 Four lifecycle hooks take the text as a plain string and return the text for the next phase:
 `on_transcribed` after speech recognition (the cleanup model gets its result), `on_cleaned`
 after the cleanup stage, also when cleanup is off (`clean` is its result), then, once the
-response has been sent, `on_output` (the log gets its result), the log and `on_done`. Those
+response has been sent, `on_sent` (the log gets its result), the log and `on_done`. Those
 three do not delay the reply, but they run on the model thread, so a slow hook holds up the next
 dictation. `raw` is always the speech recognition output. Once the text is empty, nothing
 further runs, the log included. The log is always written, by the sidecar itself: the last 100
