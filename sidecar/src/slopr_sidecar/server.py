@@ -52,9 +52,9 @@ def load_models() -> None:
             clean("Hello there.")
     except Exception as e:
         log.exception("model load failed")
-        state.error = f"{type(e).__name__}: {e}"
+        state.models, state.error = None, f"{type(e).__name__}: {e}"
         return
-    state.models = Models(config, transcribe, clean)
+    state.models, state.error = Models(config, transcribe, clean), None
 
 
 def start_loading() -> None:
