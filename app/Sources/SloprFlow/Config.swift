@@ -60,7 +60,11 @@ enum Config {
                 current = line
             } else if current == "[\(section)]" {
                 let kv = line.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
-                if kv.count == 2, kv[0] == key { return kv[1].trimmingCharacters(in: ["\"", "'"]) }
+                if kv.count == 2, kv[0] == key {
+                    let v = kv[1]
+                    let quoted = v.count >= 2 && v.first == v.last && (v.first == "\"" || v.first == "'")
+                    return quoted ? String(v.dropFirst().dropLast()) : v
+                }
             }
         }
         return nil
