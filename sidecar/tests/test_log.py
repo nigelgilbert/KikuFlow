@@ -42,6 +42,11 @@ def test_empty_existing_log_gives_no_blank_entry(log, tmp_path: Path):
     assert log("Only.") == "Only."
 
 
+def test_trailing_newline_from_an_editor_gives_no_extra_blank_line(log, tmp_path: Path):
+    (tmp_path / "log.txt").write_text("One.\n\nTwo.\n")
+    assert log("Three.") == "One.\n\nTwo.\n\nThree."
+
+
 def test_text_is_utf8(log, tmp_path: Path):
     assert log("Café, naïve, 日本語.") == "Café, naïve, 日本語."
     assert (tmp_path / "log.txt").read_bytes() == "Café, naïve, 日本語.".encode()
