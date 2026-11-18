@@ -131,10 +131,11 @@ warning <text>     the message, on one line
 ```
 
 `[hud] renderer` names a command of yours, such as `"python3 hud.py"`. It runs through
-`/bin/sh` in `~/Library/Application Support/SloprFlow/`, so `hud.py` sits beside the config. It
-starts with the app and should end when its input closes, and ignore a line it doesn't know.
-If it can't start or it exits, the app warns "The HUD renderer stopped" and uses its own pill
-until you quit and reopen it. Empty or missing means that pill. Quit and reopen the app after
+`/bin/sh` in `~/Library/Application Support/SloprFlow/`, so `hud.py` sits beside the config.
+It gets the app's short `PATH`, so give the full path of a tool outside `/usr/bin`. It starts
+with the app and should end when its input closes, and ignore a line it doesn't know. If it
+can't start or it exits, the app warns "The HUD renderer stopped" and uses its own pill until
+you quit and reopen it. Empty or missing means that pill. Quit and reopen the app after
 changing the key.
 
 [examples/hud.py](examples/hud.py) speaks each warning and shows nothing else. The pill that
