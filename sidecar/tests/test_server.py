@@ -346,6 +346,18 @@ def test_hook_failing_before_the_reply_gives_500_with_its_message(
     assert errors(tmp_path) == ["on_cleaned in voice.py:2: KeyError: 'x'"]
 
 
+def test_hook_returning_a_wrong_type_before_the_reply_gives_500(
+    hooks: Path, tmp_path: Path, client: TestClient
+):
+    (hooks / "a.py").write_text("def on_cleaned(t): return {}\n")
+    client.post("/reload")
+    response = client.post("/transcribe", content=SPEECH)
+    detail = "on_cleaned in a.py: TypeError: on_cleaned returned dict, not str or None"
+    assert (response.status_code, response.json()) == (500, {"detail": detail})
+    assert [c[0] for c in calls(hooks)] == ["on_transcribed"]
+    assert errors(tmp_path) == [detail]
+
+
 @pytest.mark.parametrize(
     ("model", "failure", "detail"),
     [
@@ -388,6 +400,28 @@ def test_hook_failing_after_the_reply_is_recorded_and_stops_the_rest(
     assert (tmp_path / "log.txt").exists() == (point == "on_done")
     # The recorder sorts after a.py, so it sees only the phases before the failing one.
     assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", *run[:-1]]
+
+
+@pytest.mark.parametrize("point", ["on_sent", "on_done"])
+def test_hook_returning_a_wrong_type_after_the_reply_is_recorded(
+    hooks: Path, tmp_path: Path, client: TestClient, point: str
+):
+    (hooks / "a.py").write_text(f"def {point}(t): return {{}}\n")
+    client.post("/reload")
+    assert client.post("/transcribe", content=SPEECH).status_code == 200
+    message = f"{point} in a.py: TypeError: {point} returned dict, not str or None"
+    assert errors(tmp_path) == [message]
+    assert (tmp_path / "log.txt").exists() == (point == "on_done")
+
+
+def test_on_done_returning_a_string_changes_nothing(
+    hooks: Path, tmp_path: Path, client: TestClient
+):
+    (hooks / "a.py").write_text("def on_done(t): return 'other'\n")
+    client.post("/reload")
+    assert client.post("/transcribe", content=SPEECH).status_code == 200
+    assert errors(tmp_path) == []
+    assert (tmp_path / "log.txt").read_text() == "We should meet on Friday."
 
 
 def test_on_error_returning_empty_gives_500_with_empty_detail(

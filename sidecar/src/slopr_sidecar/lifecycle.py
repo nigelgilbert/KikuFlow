@@ -60,17 +60,25 @@ def default_message(e: BaseException) -> str:
     return fold(": ".join(filter(None, parts)))
 
 
+def call(point: str, path: Path, hook: Callable[[Any], str | None], arg: Any) -> str | None:
+    """`hook(arg)`; a failure, or a return that is not str or None, raises labelled."""
+    try:
+        new = hook(arg)
+        if new is not None and not isinstance(new, str):
+            raise TypeError(f"{point} returned {type(new).__name__}, not str or None")
+    except Exception as e:
+        e.add_note(hook_label(point, path, e))
+        raise
+    return new
+
+
 def fire(hooks: Hooks, point: str, text: str) -> str:
     """Run the hooks for `point` in order while there is text; a returned str replaces it."""
     for path, hook in hooks[point]:
         if not text:
             break
-        try:
-            new = hook(text)
-        except Exception as e:
-            e.add_note(hook_label(point, path, e))
-            raise
-        if point != "on_done" and isinstance(new, str):  # on_done's return is ignored
+        new = call(point, path, hook, text)
+        if point != "on_done" and new is not None:  # on_done's return is ignored
             text = new
     return text
 
@@ -82,13 +90,12 @@ def report(hooks: Hooks, e: Exception) -> str:
     message = default_message(e)
     for path, hook in hooks["on_error"]:
         try:
-            new = hook(e)
+            new = call("on_error", path, hook, e)
         except Exception as failure:
-            failure.add_note(hook_label("on_error", path, failure))
             log.error("on_error hook failed", exc_info=failure)
             write_error(default_message(failure))
             continue
-        if isinstance(new, str):
+        if new is not None:
             message = fold(new)
             break
     if message:
