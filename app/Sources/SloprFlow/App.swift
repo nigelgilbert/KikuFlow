@@ -91,8 +91,13 @@ enum Status: Equatable {
 
     private func refresh() {
         item.button?.image = NSImage(systemSymbolName: status.symbol, accessibilityDescription: status.title)
-        // The menu grows to fit its longest title, so a long status is cut short. An error's tooltip has it in full.
-        let line = status == .ready ? "Hold \(key.title) to talk" : status.title
+        // The menu grows to fit its longest title, so a long status is cut short. An error drops its "Error: "
+        // prefix to show more of the message, and its tooltip has it in full.
+        let line = switch status {
+        case .ready: "Hold \(key.title) to talk"
+        case .failed: String(status.title.dropFirst("Error: ".count))
+        default: status.title
+        }
         statusLine.title = line.count > 30 ? line.prefix(29).trimmingCharacters(in: .whitespaces) + "…" : line
         if case .failed(let error) = status { statusLine.toolTip = error } else { statusLine.toolTip = nil }
         cleanupItem.state = cleanup && sidecar.cleanupLoaded ? .on : .off
