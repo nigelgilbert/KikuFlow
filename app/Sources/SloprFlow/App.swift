@@ -117,7 +117,10 @@ enum Status: Equatable {
             return render(.warning("Microphone access is off. Turn it on in System Settings › Privacy & Security."))
         }
         do {
-            try recorder.start { [weak self] in self?.render(.listening(level: min(1, $0 * 12))) }
+            // A level can land after stop(); dropping it keeps the HUD from switching back to listening.
+            try recorder.start { [weak self] rms in
+                if self?.activity == .listening { self?.render(.listening(level: min(1, rms * 12))) }
+            }
         } catch {
             return render(.warning(error.localizedDescription))
         }
