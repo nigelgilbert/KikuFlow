@@ -54,6 +54,9 @@ engine = "parakeet"   # or "whisper"
 enabled = true
 model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
 # or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
+# prompt_file = ""      # a text file whose contents replace the model's built-in prompt
+# placement = ""        # "system" or "user"; empty means the model's built-in placement
+# safety_check = true   # false keeps whatever the model returns
 
 [server]
 port = 48123
@@ -68,6 +71,18 @@ that isn't in the list falls back to Right Option. With `key = "fn"`, set System
 Keyboard › "Press 🌐 key to" to "Do Nothing", or macOS also runs that action when you let go.
  "Clean Up Text" in the menu turns the cleanup pass off
 and on without reloading anything.
+
+### Your own cleanup prompt or model
+
+Set `prompt_file` to a text file holding your prompt (a relative path is in
+`~/Library/Application Support/SloprFlow/`) and choose "Restart Slopr Flow" after editing it.
+With `placement = "system"` the prompt is the system message and your words are the user
+message; with `"user"` the prompt and your words share one user message; empty keeps the
+built-in model's placement, or `"system"` for any other model. With `prompt_file` set, `model`
+can be any mlx-lm chat model. Two caveats: the built-in models are fine-tunes trained on one
+exact prompt, so a new prompt for them will likely clean up worse; and a prompt that is not a
+cleanup (translate, summarize, rewrite as an email) needs `safety_check = false`, or its output
+is thrown away for not looking like a cleanup of your words.
 
 ### The default cleanup model is gated
 

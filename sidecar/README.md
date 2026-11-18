@@ -58,7 +58,8 @@ Body: one utterance, 16 kHz mono, either
 ```
 
 `clean` equals `raw` when cleanup is off (query or config), when the cleanup output fails the
-safety check, or when nothing was said, unless a hook changed it. Audio under 0.1 s returns
+safety check (or, with `safety_check = false`, is empty), or when nothing was said, unless a
+hook changed it. Audio under 0.1 s returns
 empty strings. Paste `clean`.
 
 Four lifecycle hooks take the text as a plain string and return the text for the next phase:
@@ -94,10 +95,24 @@ model = "mlx-community/parakeet-tdt-0.6b-v3"   # with "whisper": "mlx-community/
 enabled = true
 model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
 # or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
+prompt_file = ""      # a text file whose contents replace the model's built-in prompt
+placement = ""        # "system" or "user"; empty means the model's built-in placement
+safety_check = true   # false keeps whatever the model returns
 
 [server]
 port = 48123
 ```
+
+`prompt_file`: `~` expanded, relative to `~/Library/Application Support/SloprFlow/`, read at
+model load (so `/reload` picks up edits); missing or empty is a load error naming the path.
+`placement`: `"system"` sends the prompt verbatim as the system turn and the transcript as the
+user turn; `"user"` sends one user turn, the stripped prompt, a blank line, the transcript; any
+other value is a load error. Empty means the built-in model's placement (ReFyne `user`, Utter
+`system`), or `system` for any other model. Any mlx-lm chat model works with `prompt_file`; an
+unknown model without it is a load error. The built-in models are fine-tunes trained on one
+exact prompt, so another prompt likely cleans up worse. `safety_check = false` uses any
+non-empty output and raises the generation cap from 2x to 4x the input tokens (plus 256),
+which a prompt that is not a cleanup (translate, summarize, email) needs.
 
 The default cleanup model is a gated Hugging Face repo: it downloads only after the user
 accepts its terms on huggingface.co and logs in (`HF_TOKEN` in the sidecar's environment, or
