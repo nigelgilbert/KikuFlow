@@ -17,7 +17,8 @@ enum Status: Equatable {
         switch self {
         case .starting(let detail): detail
         case .ready: "Ready"
-        case .failed(let error): "Error: \(error)"
+        case .failed(let error):  // the last line of a Python error is usually the readable one
+            "Error: " + (error.split(whereSeparator: \.isNewline).last.map { String($0.prefix(120)) } ?? "")
         case .listening: "Listening"
         case .thinking: "Thinking"
         }
@@ -36,7 +37,9 @@ enum Status: Equatable {
     private let statusLine = NSMenuItem()
     private let cleanupItem = NSMenuItem(title: "Clean Up Text", action: #selector(toggleCleanup), keyEquivalent: "")
 
-    private var status = Status.starting("Starting…") { didSet { refresh() } }
+    private let sidecar = Sidecar()
+    private var activity: Status? { didSet { refresh() } }
+    private var status: Status { activity ?? sidecar.status }
 
     /// Sent as `cleanup=` on every /transcribe.
     private var cleanup: Bool {
@@ -47,6 +50,7 @@ enum Status: Equatable {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let menu = NSMenu()
         menu.delegate = self
+        menu.autoenablesItems = false
         statusLine.isEnabled = false
         menu.items = [
             statusLine,
@@ -59,14 +63,20 @@ enum Status: Equatable {
         ]
         item.menu = menu
         refresh()
+        sidecar.onChange = { [weak self] in self?.refresh() }
+        sidecar.start()
     }
+
+    func applicationWillTerminate(_ notification: Notification) { sidecar.stop() }
 
     func menuNeedsUpdate(_ menu: NSMenu) { refresh() }
 
     private func refresh() {
         item.button?.image = NSImage(systemSymbolName: status.symbol, accessibilityDescription: status.title)
         statusLine.title = status.title
-        cleanupItem.state = cleanup ? .on : .off
+        if case .failed(let error) = status { statusLine.toolTip = error } else { statusLine.toolTip = nil }
+        cleanupItem.state = cleanup && sidecar.cleanupLoaded ? .on : .off
+        cleanupItem.isEnabled = sidecar.cleanupLoaded
     }
 
     @objc private func toggleCleanup() { cleanup.toggle(); refresh() }
