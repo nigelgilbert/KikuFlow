@@ -41,7 +41,7 @@ from the Accessibility list and grant it again.
 
 ## Config
 
-"Open Config…" in the menu opens `~/Library/Application Support/SloprFlow/config.toml`, creating
+"Open Config" in the menu opens `~/Library/Application Support/SloprFlow/config.toml`, creating
 it with the defaults:
 
 ```toml
@@ -101,11 +101,11 @@ log in. Until then the menu shows `Access to model … is restricted`. Either:
 
 ## Log
 
-"Open Log…" in the menu opens `~/Library/Application Support/SloprFlow/log.txt`, the text of
+"Open Log" in the menu opens `~/Library/Application Support/SloprFlow/log.txt`, the text of
 your last 100 dictations, oldest first, one line each. The app always keeps it; an
 `on_output` hook (below) can change what an entry says or keep a dictation out.
 
-"Open Errors…" opens `errors.txt` beside it: the last 50 failures, one line each with the time
+"Open Errors" opens `errors.txt` beside it: the last 50 failures, one line each with the time
 in front, such as `2026-11-18 14:02 on_cleaned in voice.py:3: KeyError: 'x'`. A failure before
 the text is pasted also shows in the HUD, and nothing is pasted. The app always keeps it; an
 `on_error` hook (below) can change what an entry says or keep a failure out.
