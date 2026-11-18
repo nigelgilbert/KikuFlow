@@ -30,6 +30,9 @@ import Foundation
     private func handle(_ type: CGEventType, _ event: CGEvent) {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            // A release or press may have gone by while the tap was off.
+            let held = CGEventSource.keyState(.combinedSessionState, key: 0x3D)
+            update(keyCode: 0x3D, flags: held ? 0x40 : 0)
             return
         }
         update(keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags.rawValue)
