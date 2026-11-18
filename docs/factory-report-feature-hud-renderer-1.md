@@ -50,3 +50,23 @@ None.
 None.
 
 Candidates 6, kept 1 (candidates 1 and 6 merged into one Nit), adversary `sol`, exchanges 2.
+
+## Fix pass 1
+
+- Nit 1: not folded in; no commit. The implementer agreed the behaviour change is real but
+  pushed back: the only path is a failed `/bin/sh` launch from Restart with the hotkey held; the
+  `showLevels` flag would spread HUD state across `App` for a path that in practice never runs;
+  and bringing the bars back while the mic is still recording is arguably better than the old
+  silent hide. The lead accepted the pushback in one exchange.
+
+## Open items
+
+- Nit 1 (warning during a hold is replaced by the next level) is left as is. If exact parity is
+  wanted, the `showLevels` flag above is the fix.
+- The look was not checked by hand; the tests cover the build and the existing logic only.
+- Not in scope: a `[hud] renderer = …` config key and any non-builtin renderer.
+
+## Tests
+
+`app/test.sh`: build succeeds, 7 tests pass (unchanged count; nothing new is testable without
+AppKit).
