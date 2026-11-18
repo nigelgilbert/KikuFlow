@@ -10,7 +10,7 @@ BLOCKS = re.findall(r"```python\n(.*?)```", README.read_text(), re.DOTALL)
 
 
 def test_readme_has_examples():
-    assert len(BLOCKS) == 7
+    assert len(BLOCKS) == 9
 
 
 @pytest.mark.parametrize("source", BLOCKS)

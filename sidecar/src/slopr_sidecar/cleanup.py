@@ -8,45 +8,91 @@ from huggingface_hub import hf_hub_download
 from mlx_lm import generate, load
 from mlx_lm.sample_utils import make_sampler
 
+from .config import APP_DIR, Config
+
 type Cleaner = Callable[[str], str]
 type Messages = list[dict[str, str]]
 
 
-def _prompt(model: str) -> Callable[[str], Messages]:
-    """Each supported model was trained on one exact prompt shape."""
-    match model:
-        case "ReFyneLabs/simplewords-dictation-cleanup-v3":
-            # Frozen prompt shipped in the model repo; one user turn, no system role.
-            path = hf_hub_download(model, "system_v2.txt")
-            system = Path(path).read_text(encoding="utf-8").strip()
-            return lambda raw: [{"role": "user", "content": f"{system}\n\n{raw}"}]
-        case "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit":
-            # Utter's prompt, byte for byte with its final newline, as the system turn. The MLX
-            # repo doesn't ship it; utter_system.txt is the "System prompt" block of the model
-            # card at hpal007/utter-dictation-cleanup-GGUF@68bbbf5589c85cbb18818c3a0609cfc90eb63dd5.
-            system = Path(__file__).with_name("utter_system.txt").read_text(encoding="utf-8")
-            return lambda raw: [
-                {"role": "system", "content": system},
-                {"role": "user", "content": raw},
-            ]
-        case _:
-            raise ValueError(f"unsupported cleanup.model {model!r}")
+REFYNE = "ReFyneLabs/simplewords-dictation-cleanup-v3"
+UTTER = "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
 
 
-def load_cleaner(model_name: str) -> Cleaner:
-    messages = _prompt(model_name)
-    model, tokenizer = load(model_name)[:2]
+def _refyne_prompt() -> str:
+    # Frozen prompt shipped in the model repo.
+    return Path(hf_hub_download(REFYNE, "system_v2.txt")).read_text(encoding="utf-8")
+
+
+def _utter_prompt() -> str:
+    # The MLX repo doesn't ship it; utter_system.txt is the "System prompt" block of the model
+    # card at hpal007/utter-dictation-cleanup-GGUF@68bbbf5589c85cbb18818c3a0609cfc90eb63dd5.
+    return Path(__file__).with_name("utter_system.txt").read_text(encoding="utf-8")
+
+
+# Each built-in model was trained on one exact prompt: how to get it, and where it goes.
+PRESETS: dict[str, tuple[Callable[[], str], str]] = {
+    REFYNE: (_refyne_prompt, "user"),
+    UTTER: (_utter_prompt, "system"),
+}
+
+
+def prompt_path(prompt_file: str) -> Path:
+    """`~` expanded; a relative path is under APP_DIR."""
+    return APP_DIR / Path(prompt_file).expanduser()
+
+
+def _read_prompt_file(prompt_file: str) -> str:
+    path = prompt_path(prompt_file)
+    if not path.is_file():
+        raise FileNotFoundError(f"cleanup.prompt_file {path} not found")
+    prompt = path.read_text(encoding="utf-8")
+    if not prompt.strip():
+        raise ValueError(f"cleanup.prompt_file {path} is empty")
+    return prompt
+
+
+def build_messages(model: str, prompt_file: str, prompt_role: str) -> Callable[[str], Messages]:
+    """The chat for each transcript: `prompt_file` or the model's built-in prompt, in its role."""
+    preset = PRESETS.get(model)
+    prompt_role = prompt_role or (preset[1] if preset else "system")
+    if prompt_role not in ("system", "user"):
+        raise ValueError(f'cleanup.prompt_role must be "system" or "user", got {prompt_role!r}')
+    if prompt_file:
+        prompt = _read_prompt_file(prompt_file)
+    elif preset:
+        prompt = preset[0]()
+    else:
+        raise ValueError(f"unsupported cleanup.model {model!r}: set cleanup.prompt_file to use it")
+    if prompt_role == "user":
+        # One user turn, no system role.
+        prompt = prompt.strip()
+        return lambda raw: [{"role": "user", "content": f"{prompt}\n\n{raw}"}]
+    # Verbatim, final newline included.
+    return lambda raw: [{"role": "system", "content": prompt}, {"role": "user", "content": raw}]
+
+
+def load_cleaner(config: Config) -> Cleaner:
+    c = config
+    messages = build_messages(c.cleanup_model, c.cleanup_prompt_file, c.cleanup_prompt_role)
+    model, tokenizer = load(c.cleanup_model)[:2]
     greedy = make_sampler(temp=0.0)
 
     def clean(raw: str) -> str:
         prompt = tokenizer.apply_chat_template(
             messages(raw), add_generation_prompt=True, enable_thinking=False, tokenize=False
         )
-        # Output longer than twice the input fails is_plausible anyway.
-        max_tokens = 2 * len(tokenizer.encode(raw)) + 16
+        # Output longer than twice the input fails is_plausible anyway; without the check, leave
+        # room for prompts that expand the text but still stop a runaway generation.
+        n = len(tokenizer.encode(raw))
+        max_tokens = 2 * n + 16 if c.cleanup_safety_check else 4 * n + 256
         return generate(model, tokenizer, prompt, max_tokens=max_tokens, sampler=greedy).strip()
 
     return clean
+
+
+def accept(raw: str, clean: str, safety_check: bool) -> bool:
+    """Whether to use the cleanup output `clean` in place of `raw`."""
+    return is_plausible(raw, clean) if safety_check else bool(clean.strip())
 
 
 def _words(text: str) -> list[str]:

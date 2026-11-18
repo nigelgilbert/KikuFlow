@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from slopr_sidecar import lifecycle, server
+from slopr_sidecar import cleanup, lifecycle, server
 from slopr_sidecar.config import Config
 
 SPEECH = np.zeros(16_000, "<f4").tobytes()  # one second of raw float32 PCM
@@ -36,21 +36,32 @@ class Fakes:
         self.config = Config()
         self.cleaned = "We should meet on Friday."
         self.cleaner_inputs: list[str] = []
+        self.transcriber_loads = 0
         self.cleaner_loads = 0
+        self.failure: dict[str, Exception] = {}  # "stt" or "cleanup": what that model raises
         self.loaded = threading.Event()
         self.loaded.set()
 
     def load_transcriber(self, engine: str, model: str):
         self.loaded.wait()
+        self.transcriber_loads += 1
         if engine == "vosk":
             raise ValueError("unknown stt.engine 'vosk'")
-        return lambda audio: RAW
 
-    def load_cleaner(self, model: str):
+        def transcribe(audio) -> str:
+            if "stt" in self.failure:
+                raise self.failure["stt"]
+            return RAW
+
+        return transcribe
+
+    def load_cleaner(self, config: Config):
         self.cleaner_loads += 1
 
         def clean(raw: str) -> str:
             self.cleaner_inputs.append(raw)
+            if "cleanup" in self.failure:
+                raise self.failure["cleanup"]
             return self.cleaned
 
         return clean
@@ -69,12 +80,20 @@ def calls(hooks: Path) -> list[list[str]]:
     return [line.split("|") for line in path.read_text().splitlines()] if path.exists() else []
 
 
+def errors(tmp_path: Path) -> list[str]:
+    """The entries of errors.txt without their time."""
+    path = tmp_path / "errors.txt"
+    text = path.read_text() if path.exists() else ""
+    return [entry[17:] for entry in filter(None, text.split("\n\n"))]
+
+
 @pytest.fixture
 def fakes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, hooks: Path) -> Fakes:
-    """Fake models, and temporary stand-ins for the hook directory and the log."""
+    """Fake models, and temporary stand-ins for the hook directory, the log and errors.txt."""
     fakes = Fakes()
     monkeypatch.setattr(server, "HOOK_DIR", hooks)
     monkeypatch.setattr(lifecycle, "LOG", tmp_path / "log.txt")
+    monkeypatch.setattr(lifecycle, "ERRORS", tmp_path / "errors.txt")
     monkeypatch.setattr(server, "load_config", lambda: fakes.config)
     monkeypatch.setattr(server, "load_transcriber", fakes.load_transcriber)
     monkeypatch.setattr(server, "load_cleaner", fakes.load_cleaner)
@@ -132,8 +151,24 @@ def test_implausible_cleanup_falls_back_to_raw(fakes: Fakes, client: TestClient)
     assert client.post("/transcribe", content=SPEECH).json()["clean"] == RAW
 
 
-def test_bad_audio_is_rejected(client: TestClient):
-    assert client.post("/transcribe", content=b"RIFF").status_code == 400
+def test_empty_cleanup_falls_back_to_raw(fakes: Fakes, client: TestClient):
+    fakes.cleaned = ""
+    assert client.post("/transcribe", content=SPEECH).json()["clean"] == RAW
+
+
+@pytest.mark.parametrize(
+    ("cleaned", "clean"), [("Rendez-vous vendredi.", "Rendez-vous vendredi."), (" \n", RAW)]
+)
+def test_safety_check_off_keeps_any_non_empty_cleanup(fakes: Fakes, cleaned: str, clean: str):
+    fakes.config = Config(cleanup_safety_check=False)
+    fakes.cleaned = cleaned
+    with TestClient(server.app) as client:
+        assert client.post("/transcribe", content=SPEECH).json()["clean"] == clean
+
+
+def test_bad_audio_is_rejected_with_a_detail(client: TestClient):
+    response = client.post("/transcribe", content=b"RIFF")  # EOFError with no message
+    assert (response.status_code, response.json()) == (400, {"detail": "EOFError"})
 
 
 def test_reload_rereads_config(fakes: Fakes, client: TestClient):
@@ -154,6 +189,17 @@ def test_load_failure_is_reported(fakes: Fakes):
         assert health["ready"] is False
         assert health["error"] == "ValueError: unknown stt.engine 'vosk'"
         assert client.post("/transcribe", content=SPEECH).status_code == 503
+
+
+def test_missing_prompt_file_is_reported(
+    monkeypatch: pytest.MonkeyPatch, fakes: Fakes, tmp_path: Path
+):
+    monkeypatch.setattr(server, "load_cleaner", cleanup.load_cleaner)  # fails before loading
+    fakes.config = Config(cleanup_prompt_file=str(tmp_path / "nope.txt"))
+    with TestClient(server.app) as client:
+        wait_for_load()
+        error = client.get("/health").json()["error"]
+    assert error == f"FileNotFoundError: cleanup.prompt_file {tmp_path / 'nope.txt'} not found"
 
 
 def test_hooks_shape_the_text_around_cleanup(
@@ -220,12 +266,17 @@ def test_hooks_after_the_reply_fire_once_on_the_model_executor(hooks: Path, clie
     assert [(c[0], c[2]) for c in after] == [("on_output", executor), ("on_done", executor)]
 
 
-def test_hook_file_failing_to_load_leaves_health_alone(hooks: Path, client: TestClient):
+def test_hook_file_failing_to_import_fails_the_load_before_the_models(
+    fakes: Fakes, hooks: Path, tmp_path: Path
+):
     (hooks / "broken.py").write_text("raise RuntimeError('broken hook file')\n")
-    client.post("/reload")
-    wait_for_load()
-    health = client.get("/health").json()
-    assert (health["ready"], health["error"]) == (True, None)
+    with TestClient(server.app) as client:
+        wait_for_load()
+        health = client.get("/health").json()
+    assert health["ready"] is False
+    assert health["error"] == "hook file broken.py: RuntimeError: broken hook file"
+    assert (fakes.transcriber_loads, fakes.cleaner_loads) == (0, 0)
+    assert errors(tmp_path) == []
 
 
 def test_reply_is_sent_before_on_output(hooks: Path, client: TestClient):
@@ -270,17 +321,14 @@ def test_on_output_fires_before_the_log_is_written_and_on_done_after(
     ]
 
 
-def test_failed_log_write_is_logged_and_on_done_still_fires(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    hooks: Path,
-    client: TestClient,
-    caplog: pytest.LogCaptureFixture,
+def test_failed_log_write_is_recorded_and_stops_on_done(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, hooks: Path, client: TestClient
 ):
     monkeypatch.setattr(lifecycle, "LOG", tmp_path / "missing/log.txt")
-    client.post("/transcribe", content=SPEECH)
-    assert "log write failed" in caplog.text
-    assert calls(hooks)[-1][0] == "on_done"
+    assert client.post("/transcribe", content=SPEECH).status_code == 200
+    [entry] = errors(tmp_path)
+    assert entry.startswith("log write: FileNotFoundError: ")
+    assert calls(hooks)[-1][0] == "on_output"
 
 
 def test_on_output_decides_what_is_logged_but_not_the_reply(
@@ -301,3 +349,114 @@ def test_on_output_returning_empty_text_skips_the_log_and_on_done(
     assert client.post("/transcribe", content=SPEECH).json()["clean"] == "We should meet on Friday."
     assert not (tmp_path / "log.txt").exists()
     assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned"]
+
+
+def test_hook_failing_before_the_reply_gives_500_with_its_message(
+    fakes: Fakes, hooks: Path, tmp_path: Path, client: TestClient
+):
+    (hooks / "voice.py").write_text("def on_cleaned(t):\n    return {}['x']\n")
+    client.post("/reload")
+    response = client.post("/transcribe", content=SPEECH)
+    assert response.status_code == 500
+    assert response.json() == {"detail": "on_cleaned in voice.py:2: KeyError: 'x'"}
+    assert [c[0] for c in calls(hooks)] == ["on_transcribed"]
+    assert errors(tmp_path) == ["on_cleaned in voice.py:2: KeyError: 'x'"]
+
+
+@pytest.mark.parametrize(
+    ("model", "failure", "detail"),
+    [
+        (
+            "stt",
+            RuntimeError("Metal\nout of memory"),
+            "speech recognition: RuntimeError: Metal out of memory",
+        ),
+        ("cleanup", TimeoutError(), "cleanup model: TimeoutError"),
+    ],
+)
+def test_model_failing_gives_500_with_its_label(
+    fakes: Fakes,
+    hooks: Path,
+    tmp_path: Path,
+    client: TestClient,
+    model: str,
+    failure: Exception,
+    detail: str,
+):
+    wait_for_load()
+    fakes.failure[model] = failure
+    response = client.post("/transcribe", content=SPEECH)
+    assert (response.status_code, response.json()) == (500, {"detail": detail})
+    assert errors(tmp_path) == [detail]
+    assert [c[0] for c in calls(hooks)] == (["on_transcribed"] if model == "cleanup" else [])
+
+
+@pytest.mark.parametrize(
+    ("point", "run"),
+    [("on_output", ["on_output"]), ("on_done", ["on_output", "on_done"])],
+)
+def test_hook_failing_after_the_reply_is_recorded_and_stops_the_rest(
+    hooks: Path, tmp_path: Path, client: TestClient, point: str, run: list[str]
+):
+    (hooks / "a.py").write_text(f"def {point}(t):\n    raise ConnectionError('offline')\n")
+    client.post("/reload")
+    assert client.post("/transcribe", content=SPEECH).status_code == 200
+    assert errors(tmp_path) == [f"{point} in a.py:2: ConnectionError: offline"]
+    assert (tmp_path / "log.txt").exists() == (point == "on_done")
+    # The recorder sorts after a.py, so it sees only the phases before the failing one.
+    assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", *run[:-1]]
+
+
+def test_on_error_returning_empty_gives_500_with_empty_detail(
+    hooks: Path, tmp_path: Path, client: TestClient
+):
+    (hooks / "a.py").write_text(
+        "def on_transcribed(t):\n    raise ValueError('no')\n\ndef on_error(e):\n    return ''\n"
+    )
+    client.post("/reload")
+    response = client.post("/transcribe", content=SPEECH)
+    assert (response.status_code, response.json()) == (500, {"detail": ""})
+    assert errors(tmp_path) == []
+
+
+def test_on_error_message_is_the_detail(hooks: Path, tmp_path: Path, client: TestClient):
+    (hooks / "a.py").write_text(
+        "def on_transcribed(t):\n    raise ValueError('no')\n\n"
+        "def on_error(e):\n    return f'Oops,\\n{e}'\n"
+    )
+    client.post("/reload")
+    assert client.post("/transcribe", content=SPEECH).json() == {"detail": "Oops, no"}
+    assert errors(tmp_path) == ["Oops, no"]
+
+
+def test_503_while_models_are_not_loaded_is_left_alone(
+    fakes: Fakes, hooks: Path, tmp_path: Path
+):
+    (hooks / "a.py").write_text("def on_error(e):\n    return 'from on_error'\n")
+    fakes.config = Config(stt_engine="vosk")
+    with TestClient(server.app) as client:
+        wait_for_load()
+        response = client.post("/transcribe", content=SPEECH)
+    assert (response.status_code, response.json()) == (
+        503,
+        {"detail": "ValueError: unknown stt.engine 'vosk'"},
+    )
+    assert errors(tmp_path) == []
+
+
+def test_on_error_can_keep_a_failure_after_the_reply_out_of_errors_txt(
+    hooks: Path, tmp_path: Path, client: TestClient
+):
+    (hooks / "archive.py").write_text(
+        "import urllib.error\n\n"
+        "def on_done(t):\n    raise urllib.error.URLError(ConnectionRefusedError())\n"
+    )
+    (hooks / "offline.py").write_text(
+        "def on_error(e):\n"
+        "    if isinstance(getattr(e, 'reason', e), ConnectionError):\n"
+        "        return ''\n"
+    )
+    client.post("/reload")
+    assert client.post("/transcribe", content=SPEECH).status_code == 200
+    assert (tmp_path / "log.txt").exists()
+    assert errors(tmp_path) == []
