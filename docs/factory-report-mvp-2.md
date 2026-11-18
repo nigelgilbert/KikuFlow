@@ -111,3 +111,44 @@ where the two differed. Numbers in brackets are the reviewer's.
 
 Counts: 26 candidates, 10 kept (3 fix, 7 nit), 16 wontfix, 1 split, adversary `sol`,
 2 exchanges.
+
+## Fix pass
+
+Pass base `bbd09f0`. The Fix and Nit items went to the implementer, which folded in 9 of the
+10 and pushed back on one.
+
+| Item | Result | Commit |
+|---|---|---|
+| 1 [3] `on_logged` return values | Folded in. `fire` applies a returned string only when the point is not `on_logged`; the empty-text check is kept. New test in `test_lifecycle.py`. | `f14e840` |
+| 2 [4] The hooks folder is never created | Folded in, docs only. `examples/README.md` and `README.md` say it is a folder you create, and the turn-off recipe runs `mkdir -p` first. | `0b9c972` |
+| 3 [9] Invisible stderr | Folded in, docs only. `examples/README.md` says to quit the app and start its binary from Terminal. Confirmed first that the sidecar inherits the app's stderr: `launch()` sets no `standardError`, and a scratch Swift program showed a `Process` child's stderr reaching the parent's. | `0b9c972` |
+| 4 [1] `SystemExit` escapes | Not folded in. See below. | |
+| 5 [22] Reply-before-`on_logged` test | Folded in. A raw ASGI test records the hook calls when the response body is sent. It fails when the background task is changed to an awaited call. | `edfd473` |
+| 6 [2] "never delays the paste" | Folded in. `sidecar/README.md` says `on_logged` does not delay that reply and that a slow one holds up the next dictation. | `0b9c972` |
+| 7 [5] "after the paste" | Folded in. `README.md` says "once the text has been sent to be pasted". | `0b9c972` |
+| 8 [11] Trailing newline in `log.txt` | Folded in. `hooks/log.py` strips before splitting, with a test; the log example matches. | `b48d2c9`, `0b9c972` |
+| 9 [6] `verbatim.py` and `voice.py` | Folded in. One sentence in `examples/README.md`. | `0b9c972` |
+| 10 [7] Vocabulary keys | Folded in. The `WORDS` line carries `# keys in lower case`. | `0b9c972` |
+
+Pushback on item 4: the implementer judged a hook file that calls `sys.exit()` at import to be
+as contrived as the non-callable hook name the Wontfix list already accepts ([16]), and not
+worth extra code in the loader. The lead accepted that: the item was a nit at medium
+confidence, and hook files are the user's own code.
+
+## Open items
+
+- **`SystemExit` in a hook file (item 4).** Left as is. A hook file that calls `sys.exit()`
+  at import leaves `/health` reporting loading with no error. The change, if wanted, is
+  `except (Exception, SystemExit):` at the two `except` lines in `lifecycle.py`.
+- **Not checked by hand.** Clicking "Open Log…" in the running app, and a dictation with the
+  real models through the hooks.
+- **`docs/plan-hooks-followup.md`.** An untracked follow-up plan appeared in the checkout
+  during the run. It is not part of this run and is not committed.
+
+No items were struck by the user.
+
+## Tests
+
+- Sidecar, from `sidecar/`: `uv run pytest -q && uv run ruff check . && uv run pyright` gives
+  48 passed, ruff clean, pyright 0 errors (21 tests at the base commit).
+- App: `app/test.sh` gives 7 tests passed.
