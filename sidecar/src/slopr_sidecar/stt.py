@@ -7,7 +7,6 @@ from collections.abc import Callable
 import mlx.core as mx
 import mlx_whisper
 import numpy as np
-from mlx_whisper.transcribe import ModelHolder
 from parakeet_mlx import from_pretrained
 from parakeet_mlx.audio import get_logmel
 
@@ -38,7 +37,6 @@ def load_transcriber(engine: str, model: str) -> Transcriber:
 
             return transcribe
         case "whisper":
-            ModelHolder.get_model(model, mx.float16)  # load now; transcribe() reuses it
             return lambda audio: str(
                 mlx_whisper.transcribe(audio, path_or_hf_repo=model)["text"]
             ).strip()
