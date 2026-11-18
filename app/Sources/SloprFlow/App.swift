@@ -84,15 +84,35 @@ enum Status: Equatable {
     }
 
     private func hotkeyChanged(down: Bool) {
-        if down {
+        if down { startListening() } else if activity == .listening { finishListening() }
+    }
+
+    private func startListening() {
+        guard activity == nil else { return }
+        guard sidecar.status == .ready else { return hud.flash("Slopr Flow isn't ready. \(sidecar.status.title)") }
+        do {
             let hud = hud
-            guard (try? recorder.start(onLevel: { hud.level($0) })) != nil else { return }
-            activity = .listening
-            hud.listen()
-        } else if activity == .listening {
-            _ = recorder.stop()
-            activity = nil
-            hud.dismiss()
+            try recorder.start(onLevel: { hud.level($0) })
+        } catch {
+            return hud.flash(error.localizedDescription)
+        }
+        activity = .listening
+        hud.listen()
+    }
+
+    private func finishListening() {
+        let samples = recorder.stop()
+        activity = .thinking
+        hud.think()
+        Task {
+            defer { activity = nil }
+            do {
+                let text = try await sidecar.transcribe(samples, cleanup: cleanup)
+                if text.isEmpty { return hud.dismiss() }
+                hud.flash(text, hint: !paste(text))
+            } catch {
+                hud.flash("Couldn't transcribe: \(error.localizedDescription)")
+            }
         }
     }
 

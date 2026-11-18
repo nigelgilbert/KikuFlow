@@ -18,6 +18,22 @@ import Foundation
         }
     }
 
+    /// Posts one utterance of 16 kHz mono float32 samples and returns the text to paste.
+    func transcribe(_ samples: [Float], cleanup: Bool) async throws -> String {
+        var request = URLRequest(url: base.appending(path: "transcribe")
+            .appending(queryItems: [URLQueryItem(name: "cleanup", value: String(cleanup))]))
+        request.httpMethod = "POST"
+        request.httpBody = samples.withUnsafeBytes { Data($0) }  // little-endian on Apple Silicon
+        request.timeoutInterval = 120
+        let (data, response) = try await URLSession.shared.data(for: request)
+        struct Reply: Decodable { let clean: String?; let detail: String? }
+        let reply = try? JSONDecoder().decode(Reply.self, from: data)
+        guard (response as? HTTPURLResponse)?.statusCode == 200, let clean = reply?.clean else {
+            throw Failure(reply?.detail ?? "The speech engine returned an error")
+        }
+        return clean
+    }
+
     /// Stops the sidecar; called on quit, so it blocks until the process is gone.
     func stop() {
         quitting = true
