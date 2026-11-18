@@ -16,13 +16,13 @@ POINTS = ("on_transcribed", "on_cleaned", "on_output", "on_done")
 HOOK_DIR = APP_DIR / "hooks"
 LOG = APP_DIR / "log.txt"
 
-# Each hook with the file it was loaded from, for its label.
+# Each hook with the file it was loaded from, for its label. on_error takes the exception.
 type Hooks = dict[str, list[tuple[Path, Callable[[Any], str | None]]]]
 
 
 def load_hooks(directory: Path) -> Hooks:
     """The hooks of every *.py in `directory`, in filename order."""
-    hooks: Hooks = {point: [] for point in POINTS}
+    hooks: Hooks = {point: [] for point in (*POINTS, "on_error")}
     for path in sorted(directory.glob("*.py")):
         try:
             names = runpy.run_path(str(path))
@@ -74,6 +74,21 @@ def fire(hooks: Hooks, point: str, text: str) -> str:
         if point != "on_done" and isinstance(new, str):  # on_done's return is ignored
             text = new
     return text
+
+
+def report(hooks: Hooks, e: Exception) -> str:
+    """The message for `e`: the first str an on_error hook returns, else the default."""
+    log.error("dictation failed", exc_info=e)
+    for path, hook in hooks["on_error"]:
+        try:
+            message = hook(e)
+        except Exception as failure:
+            failure.add_note(hook_label("on_error", path, failure))
+            log.error("on_error hook failed", exc_info=failure)
+            continue
+        if isinstance(message, str):
+            return fold(message)
+    return default_message(e)
 
 
 def write_log(text: str) -> None:

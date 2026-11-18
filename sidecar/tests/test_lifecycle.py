@@ -2,7 +2,14 @@ from pathlib import Path
 
 import pytest
 
-from slopr_sidecar.lifecycle import POINTS, default_message, fire, labelled, load_hooks
+from slopr_sidecar.lifecycle import (
+    POINTS,
+    default_message,
+    fire,
+    labelled,
+    load_hooks,
+    report,
+)
 
 HERE = Path(__file__)
 
@@ -35,7 +42,7 @@ def test_loads_hooks_in_filename_order(tmp_path: Path):
 
 
 def test_missing_directory_has_no_hooks(tmp_path: Path):
-    assert load_hooks(tmp_path / "missing") == {p: [] for p in POINTS}
+    assert load_hooks(tmp_path / "missing") == {p: [] for p in (*POINTS, "on_error")}
 
 
 def test_file_failing_to_import_is_logged_and_skipped(
@@ -107,3 +114,53 @@ def test_fire_stops_once_the_text_is_empty():
     assert fire(hooks, "on_transcribed", "hello") == ""
     assert fire(hooks, "on_transcribed", "") == ""
     assert calls == []
+
+
+def labelled_error() -> KeyError:
+    with pytest.raises(KeyError) as info, labelled("on_cleaned in voice.py:3"):
+        raise KeyError("x")
+    return info.value
+
+
+def test_on_error_loads_beside_the_text_hooks(tmp_path: Path):
+    write(tmp_path / "errors.py", "def on_error(e): return 'nope'")
+    hooks = load_hooks(tmp_path)
+    assert [path.name for path, _ in hooks["on_error"]] == ["errors.py"]
+    assert report(hooks, labelled_error()) == "nope"
+
+
+def test_first_str_from_on_error_wins(tmp_path: Path):
+    write(tmp_path / "a.py", "def on_error(e): return None")
+    write(tmp_path / "b.py", "def on_error(e):\n    return f'first:\\n {type(e).__name__}'")
+    write(tmp_path / "c.py", "def on_error(e): return 'second'")
+    assert report(load_hooks(tmp_path), labelled_error()) == "first: KeyError"
+
+
+def test_on_error_returning_none_or_nothing_gives_the_default(tmp_path: Path):
+    write(tmp_path / "a.py", "def on_error(e): pass")
+    expected = "on_cleaned in voice.py:3: KeyError: 'x'"
+    assert report(load_hooks(tmp_path), labelled_error()) == expected
+    assert report(load_hooks(tmp_path / "missing"), labelled_error()) == expected
+
+
+def test_on_error_returning_empty_suppresses_the_message(tmp_path: Path):
+    write(tmp_path / "a.py", "def on_error(e): return ''")
+    write(tmp_path / "b.py", "def on_error(e): return 'not reached'")
+    assert report(load_hooks(tmp_path), labelled_error()) == ""
+
+
+def test_on_error_gets_the_exception_with_its_type_and_note(tmp_path: Path):
+    write(
+        tmp_path / "a.py",
+        "def on_error(e):\n"
+        "    if isinstance(e, KeyError) and 'voice.py:3' in str(e.__notes__):\n"
+        "        return 'seen'\n",
+    )
+    assert report(load_hooks(tmp_path), labelled_error()) == "seen"
+
+
+def test_raising_on_error_is_skipped(tmp_path: Path, caplog: pytest.LogCaptureFixture):
+    write(tmp_path / "a.py", "def on_error(e):\n    raise RuntimeError('broken')")
+    write(tmp_path / "b.py", "def on_error(e): return 'next'")
+    assert report(load_hooks(tmp_path), labelled_error()) == "next"
+    assert "on_error in a.py:2" in caplog.text
