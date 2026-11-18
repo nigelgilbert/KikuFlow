@@ -441,3 +441,16 @@ def test_503_while_models_are_not_loaded_is_left_alone(
         {"detail": "ValueError: unknown stt.engine 'vosk'"},
     )
     assert errors(tmp_path) == []
+
+
+def test_on_error_can_keep_a_failure_after_the_reply_out_of_errors_txt(
+    hooks: Path, tmp_path: Path, client: TestClient
+):
+    (hooks / "archive.py").write_text("def on_done(t):\n    raise ConnectionRefusedError\n")
+    (hooks / "offline.py").write_text(
+        "def on_error(e):\n    if isinstance(e, ConnectionError):\n        return ''\n"
+    )
+    client.post("/reload")
+    assert client.post("/transcribe", content=SPEECH).status_code == 200
+    assert (tmp_path / "log.txt").exists()
+    assert errors(tmp_path) == []
