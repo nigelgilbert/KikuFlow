@@ -3,6 +3,7 @@ import AppKit
 enum Config {
     static let dir = URL.applicationSupportDirectory.appending(path: "SloprFlow")
     static let file = dir.appending(path: "config.toml")
+    static let log = dir.appending(path: "log.txt")
 
     static let defaults = """
         [stt]
@@ -53,13 +54,17 @@ enum Config {
         return nil
     }
 
-    @MainActor static func open() {
-        if !FileManager.default.fileExists(atPath: file.path) {
+    @MainActor static func open() { open(file, creatingWith: defaults) }
+    @MainActor static func openLog() { open(log, creatingWith: "") }
+
+    /// Opens `url`, first writing `contents` to it if it is missing, in TextEdit if no app claims it.
+    @MainActor private static func open(_ url: URL, creatingWith contents: String) {
+        if !FileManager.default.fileExists(atPath: url.path) {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            try? defaults.write(to: file, atomically: true, encoding: .utf8)
+            try? contents.write(to: url, atomically: true, encoding: .utf8)
         }
-        if !NSWorkspace.shared.open(file) {
-            NSWorkspace.shared.open([file], withApplicationAt: URL(filePath: "/System/Applications/TextEdit.app"),
+        if !NSWorkspace.shared.open(url) {
+            NSWorkspace.shared.open([url], withApplicationAt: URL(filePath: "/System/Applications/TextEdit.app"),
                                     configuration: NSWorkspace.OpenConfiguration())
         }
     }

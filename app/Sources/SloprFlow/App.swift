@@ -67,6 +67,7 @@ enum Status: Equatable {
             .separator(),
             cleanupItem,
             NSMenuItem(title: "Open Config…", action: #selector(openConfig), keyEquivalent: ","),
+            NSMenuItem(title: "Open Log…", action: #selector(openLog), keyEquivalent: ""),
             .separator(),
             NSMenuItem(title: "About Slopr Flow", action: #selector(about), keyEquivalent: ""),
             NSMenuItem(title: "Quit Slopr Flow", action: #selector(NSApplication.terminate), keyEquivalent: "q"),
@@ -154,6 +155,8 @@ enum Status: Equatable {
     @objc private func toggleCleanup() { cleanup.toggle(); refresh() }
 
     @objc private func openConfig() { Config.open() }
+
+    @objc private func openLog() { Config.openLog() }
 
     /// Quits, then reopens the app once this process has gone, so the new one finds the port free.
     @objc private func restart() {
