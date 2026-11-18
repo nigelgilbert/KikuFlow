@@ -107,7 +107,7 @@ enum Status: Equatable {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {  // asked on first use, not at launch
         case .authorized: break
         case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .audio) { _ in }
+            AVCaptureDevice.requestAccess(for: .audio) { @Sendable _ in }  // called off the main thread
             return hud.flash("Allow microphone access, then hold Right Option again")
         default:
             return hud.flash("Microphone access is off. Turn it on in System Settings › Privacy & Security.")
@@ -144,7 +144,7 @@ enum Status: Equatable {
 
     @objc private func allowMicrophone() {
         if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
-            AVCaptureDevice.requestAccess(for: .audio) { _ in }
+            AVCaptureDevice.requestAccess(for: .audio) { @Sendable _ in }  // called off the main thread
         } else {
             openSettings("Privacy_Microphone")
         }
