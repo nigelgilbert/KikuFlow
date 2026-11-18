@@ -26,11 +26,16 @@ enum Config {
         key = "right_option"   # hold to talk; or "fn", "left_option", "left_command",
         # "right_command", "left_control", "right_control"
 
+        [hud]
+        # renderer = ""   # a command run in this folder that gets the HUD states on its input;
+        # empty means the pill that comes with the app
+
         """
 
     private static var text: String { (try? String(contentsOf: file, encoding: .utf8)) ?? "" }
     static var port: Int { port(in: text) }
     static var hotkey: Hotkey.Key { hotkey(in: text) }
+    static var renderer: String? { renderer(in: text) }
 
     static func port(in toml: String) -> Int {
         value("port", section: "server", in: toml).flatMap { Int($0) } ?? 48123
@@ -38,6 +43,11 @@ enum Config {
 
     static func hotkey(in toml: String) -> Hotkey.Key {
         value("key", section: "hotkey", in: toml).flatMap { Hotkey.Key.named[$0] } ?? .rightOption
+    }
+
+    /// The user's HUD command; nil means SloprHUD.
+    static func renderer(in toml: String) -> String? {
+        value("renderer", section: "hud", in: toml).flatMap { $0.isEmpty ? nil : $0 }
     }
 
     /// Reads only the flat `key = value` subset of TOML that the file uses.
