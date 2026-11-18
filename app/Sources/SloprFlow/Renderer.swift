@@ -1,8 +1,17 @@
 import AppKit
 import SwiftUI
 
-@MainActor final class HUD {
-    @MainActor @Observable final class Model {
+enum HUDState: Equatable {
+    case hidden
+    case listening(level: Float)  // 0...1, the newest mic level
+    case thinking
+    case warning(String)
+}
+
+@MainActor protocol Renderer { func render(_ state: HUDState) }
+
+@MainActor final class BuiltinRenderer: Renderer {
+    @MainActor @Observable fileprivate final class Model {
         enum Phase { case listening, thinking, warning(String) }
         var phase = Phase.listening
         var levels = [Float](repeating: 0, count: 32)
@@ -11,7 +20,7 @@ import SwiftUI
     private let model = Model()
     private let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 480, height: 120),
                                 styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
-    private var hide: Task<Void, Never>?
+    private var state = HUDState.hidden
 
     init() {
         panel.isOpaque = false
@@ -25,33 +34,27 @@ import SwiftUI
         panel.contentView = host
     }
 
-    func listen() {
-        model.levels = model.levels.map { _ in 0 }
-        show(.listening)
-    }
-
-    func level(_ rms: Float) {
-        model.levels.removeFirst()
-        model.levels.append(min(1, rms * 12))
-    }
-
-    func think() { show(.thinking) }
-
-    func warn(_ message: String) {
-        show(.warning(message))
-        hide = Task {
-            try? await Task.sleep(for: .seconds(1.5))
-            if !Task.isCancelled { panel.orderOut(nil) }
+    func render(_ state: HUDState) {
+        let previous = self.state
+        self.state = state
+        switch state {
+        case .hidden:
+            panel.orderOut(nil)
+        case .listening(let level):
+            if case .listening = previous {} else {
+                model.levels = model.levels.map { _ in 0 }
+                show(.listening)
+            }
+            model.levels.removeFirst()
+            model.levels.append(level)
+        case .thinking:
+            show(.thinking)
+        case .warning(let message):
+            show(.warning(message))
         }
     }
 
-    func dismiss() {
-        hide?.cancel()
-        panel.orderOut(nil)
-    }
-
     private func show(_ phase: Model.Phase) {
-        hide?.cancel()
         model.phase = phase
         if let screen = NSScreen.main {
             let frame = screen.visibleFrame
@@ -63,7 +66,7 @@ import SwiftUI
 }
 
 private struct HUDView: View {
-    let model: HUD.Model
+    let model: BuiltinRenderer.Model
 
     var body: some View {
         Group {
