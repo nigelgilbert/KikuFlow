@@ -41,7 +41,7 @@ from the Accessibility list and grant it again.
 
 ## Config
 
-"Open Config…" in the menu opens `~/Library/Application Support/SloprFlow/config.toml`, creating
+"Open Config" in the menu opens `~/Library/Application Support/SloprFlow/config.toml`, creating
 it with the defaults:
 
 ```toml
@@ -98,11 +98,11 @@ log in. Until then the menu shows `Access to model … is restricted`. Either:
 
 ## Log
 
-"Open Log…" in the menu opens `~/Library/Application Support/SloprFlow/log.txt`, the text of
+"Open Log" in the menu opens `~/Library/Application Support/SloprFlow/log.txt`, the text of
 your last 100 dictations, oldest first, one line each. The app always keeps it; an
 `on_sent` hook (below) can change what an entry says or keep a dictation out.
 
-"Open Errors…" opens `errors.txt` beside it: the last 50 failures, one line each with the time
+"Open Errors" opens `errors.txt` beside it: the last 50 failures, one line each with the time
 in front, such as `2026-11-18 14:02 on_cleaned in voice.py:3: KeyError: 'x'`. A failure before
 the text is pasted also shows in the HUD, and nothing is pasted. The app always keeps it; an
 `on_error` hook (below) can change what an entry says or keep a failure out.
@@ -118,7 +118,7 @@ message of a failure. Put hook files in `~/Library/Application Support/SloprFlow
 - Speech recognition: [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)
   by NVIDIA, licensed under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/), used through
   the MLX conversion `mlx-community/parakeet-tdt-0.6b-v3` and
-  [parakeet-mlx](https://github.com/senstella/parakeet-mlx). Also shown in the app's About panel.
+  [parakeet-mlx](https://github.com/senstella/parakeet-mlx).
 - Cleanup models: `ReFyneLabs/simplewords-dictation-cleanup-v3` and
   `devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit`, under the terms on their model
   pages.
