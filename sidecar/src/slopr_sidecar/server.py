@@ -43,6 +43,10 @@ def load_models() -> None:
         config = load_config()
         transcribe = load_transcriber(config.stt_engine, config.stt_model)
         clean = load_cleaner(config.cleanup_model) if config.cleanup_enabled else None
+        # One throwaway pass each, so the first dictation doesn't pay for kernel compilation.
+        transcribe(np.zeros(SAMPLE_RATE, np.float32))
+        if clean:
+            clean("Hello there.")
     except Exception as e:
         log.exception("model load failed")
         state.error = f"{type(e).__name__}: {e}"
