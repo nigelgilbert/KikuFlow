@@ -39,6 +39,7 @@ enum Status: Equatable {
 
     private let sidecar = Sidecar()
     private let recorder = Recorder()
+    private let hud = HUD()
     private lazy var hotkey = Hotkey { [weak self] down in self?.hotkeyChanged(down: down) }
     private var activity: Status? { didSet { refresh() } }
     private var status: Status { activity ?? sidecar.status }
@@ -84,11 +85,14 @@ enum Status: Equatable {
 
     private func hotkeyChanged(down: Bool) {
         if down {
-            guard (try? recorder.start(onLevel: { _ in })) != nil else { return }
+            let hud = hud
+            guard (try? recorder.start(onLevel: { hud.level($0) })) != nil else { return }
             activity = .listening
+            hud.listen()
         } else if activity == .listening {
             _ = recorder.stop()
             activity = nil
+            hud.dismiss()
         }
     }
 
