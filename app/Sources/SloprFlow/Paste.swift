@@ -1,8 +1,9 @@
 import AppKit
+import Carbon.HIToolbox
 
-/// Pastes `text` into the focused app with a synthetic ⌘V, then puts the previous clipboard back.
-/// Returns false, leaving `text` on the clipboard, when the keystroke can't be sent.
-@MainActor func paste(_ text: String) -> Bool {
+/// Pastes `text` into the focused app, then puts the previous clipboard back. If the keystroke
+/// can't be sent, `text` stays on the clipboard.
+@MainActor func paste(_ text: String) {
     let pasteboard = NSPasteboard.general
     let saved = pasteboard.pasteboardItems?.map { item in
         item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }
@@ -11,20 +12,20 @@ import AppKit
     pasteboard.setString(text, forType: .string)
     pasteboard.setData(Data(), forType: .init("org.nspasteboard.TransientType"))  // clipboard managers skip it
 
-    // Without Accessibility access the system drops synthetic keystrokes without telling us.
+    let key = CGKeyCode(kVK_ANSI_V)
     guard AXIsProcessTrusted(),
-          let down = CGEvent(keyboardEventSource: nil, virtualKey: 0x09, keyDown: true),  // kVK_ANSI_V
-          let up = CGEvent(keyboardEventSource: nil, virtualKey: 0x09, keyDown: false)
-    else { return false }
+          let down = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: true),
+          let up = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: false)
+    else { return }
     down.flags = .maskCommand
     up.flags = .maskCommand
     down.post(tap: .cghidEventTap)
     up.post(tap: .cghidEventTap)
 
     let ours = pasteboard.changeCount
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {  // give the target app time to read it
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
         let pasteboard = NSPasteboard.general
-        guard pasteboard.changeCount == ours else { return }  // something else was copied meanwhile
+        guard pasteboard.changeCount == ours else { return }
         pasteboard.clearContents()
         pasteboard.writeObjects(saved.map { pairs in
             let item = NSPasteboardItem()
@@ -32,5 +33,4 @@ import AppKit
             return item
         })
     }
-    return true
 }

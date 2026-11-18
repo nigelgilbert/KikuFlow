@@ -1,7 +1,8 @@
 # Slopr Flow
 
 Hold-to-talk dictation for Apple Silicon Macs that runs entirely on your machine. Hold Right
-Option, speak, let go, and the cleaned-up text is pasted into whatever app has focus.
+Option (or the key you pick in the config), speak, let go, and the cleaned-up text is pasted
+into whatever app has focus.
 
 It is a small menu-bar app (`app/`, Swift) driving a local Python server (`sidecar/`) that
 transcribes with NVIDIA Parakeet and tidies the text with a small fine-tuned LLM, both through
@@ -28,13 +29,11 @@ triangle when the models failed to load (the menu shows the error).
 
 ## Permissions
 
-- **Accessibility**, asked for at launch: the Right Option hotkey and the ⌘V paste need it.
+- **Accessibility**, asked for at launch: the hotkey and the ⌘V paste need it.
   The hotkey starts working as soon as it's granted. If paste can't be sent, the text stays on
-  the clipboard and the HUD says "Press ⌘V". The paste sends the key in the V position of a
-  US layout, so on layouts like Dvorak it may not be ⌘V.
+  the clipboard. The paste sends the key in the V position of a US layout, so on layouts like
+  Dvorak it may not be ⌘V.
 - **Microphone**, asked for the first time you hold the key.
-- **Input Monitoring**, if macOS asks for it, also lets the hotkey work, but paste still needs
-  Accessibility.
 
 While either is missing the menu has an item that opens the right System Settings pane. The
 bundle is ad-hoc signed, so after a rebuild macOS treats it as a new app: remove Slopr Flow
@@ -58,9 +57,16 @@ model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
 
 [server]
 port = 48123
+
+[hotkey]
+key = "right_option"   # hold to talk; or "fn", "left_option", "left_command",
+# "right_command", "left_control", "right_control"
 ```
 
-Quit and reopen the app after editing it. "Clean Up Text" in the menu turns the cleanup pass off
+Quit and reopen the app after editing it. The menu's first line names the key in use; a name
+that isn't in the list falls back to Right Option. With `key = "fn"`, set System Settings ›
+Keyboard › "Press 🌐 key to" to "Do Nothing", or macOS also runs that action when you let go.
+ "Clean Up Text" in the menu turns the cleanup pass off
 and on without reloading anything.
 
 ### The default cleanup model is gated

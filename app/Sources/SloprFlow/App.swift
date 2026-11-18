@@ -18,7 +18,7 @@ enum Status: Equatable {
         switch self {
         case .starting(let detail): detail
         case .ready: "Ready"
-        case .failed(let error):  // the last line of a Python error is usually the readable one
+        case .failed(let error):
             "Error: " + (error.split(whereSeparator: \.isNewline).last.map { String($0.prefix(120)) } ?? "")
         case .listening: "Listening"
         case .thinking: "Thinking"
@@ -45,11 +45,11 @@ enum Status: Equatable {
     private let sidecar = Sidecar()
     private let recorder = Recorder()
     private let hud = HUD()
-    private lazy var hotkey = Hotkey { [weak self] down in self?.hotkeyChanged(down: down) }
+    private let key = Config.hotkey
+    private lazy var hotkey = Hotkey(key: key) { [weak self] down in self?.hotkeyChanged(down: down) }
     private var activity: Status? { didSet { refresh() } }
     private var status: Status { activity ?? sidecar.status }
 
-    /// Sent as `cleanup=` on every /transcribe.
     private var cleanup: Bool {
         get { UserDefaults.standard.object(forKey: "cleanup") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "cleanup") }
@@ -70,12 +70,12 @@ enum Status: Equatable {
             .separator(),
             NSMenuItem(title: "About Slopr Flow", action: #selector(about), keyEquivalent: ""),
             NSMenuItem(title: "Quit Slopr Flow", action: #selector(NSApplication.terminate), keyEquivalent: "q"),
+            NSMenuItem(title: "Restart Slopr Flow", action: #selector(restart), keyEquivalent: "r"),
         ]
         item.menu = menu
         refresh()
         sidecar.onChange = { [weak self] in self?.refresh() }
         sidecar.start()
-        // The hotkey needs Accessibility; ask now, and pick it up as soon as it's granted.
         AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
         Task {
             while !hotkey.start() { try? await Task.sleep(for: .seconds(2)) }
@@ -89,7 +89,7 @@ enum Status: Equatable {
 
     private func refresh() {
         item.button?.image = NSImage(systemSymbolName: status.symbol, accessibilityDescription: status.title)
-        statusLine.title = status.title
+        statusLine.title = status == .ready ? "Ready: hold \(key.title) to talk" : status.title
         if case .failed(let error) = status { statusLine.toolTip = error } else { statusLine.toolTip = nil }
         cleanupItem.state = cleanup && sidecar.cleanupLoaded ? .on : .off
         cleanupItem.isEnabled = sidecar.cleanupLoaded
@@ -103,20 +103,19 @@ enum Status: Equatable {
 
     private func startListening() {
         guard activity == nil else { return }
-        guard sidecar.status == .ready else { return hud.flash("Slopr Flow isn't ready. \(sidecar.status.title)") }
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {  // asked on first use, not at launch
+        guard sidecar.status == .ready else { return hud.warn("Slopr Flow isn't ready. \(sidecar.status.title)") }
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized: break
         case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .audio) { @Sendable _ in }  // called off the main thread
-            return hud.flash("Allow microphone access, then hold Right Option again")
+            allowMicrophone()
+            return hud.warn("Allow microphone access, then hold \(key.title) again")
         default:
-            return hud.flash("Microphone access is off. Turn it on in System Settings › Privacy & Security.")
+            return hud.warn("Microphone access is off. Turn it on in System Settings › Privacy & Security.")
         }
         do {
-            let hud = hud
-            try recorder.start(onLevel: { hud.level($0) })
+            try recorder.start { [hud] in hud.level($0) }
         } catch {
-            return hud.flash(error.localizedDescription)
+            return hud.warn(error.localizedDescription)
         }
         activity = .listening
         hud.listen()
@@ -130,17 +129,15 @@ enum Status: Equatable {
             defer { activity = nil }
             do {
                 let text = try await sidecar.transcribe(samples, cleanup: cleanup)
-                if text.isEmpty { return hud.dismiss() }
-                hud.flash(text, hint: !paste(text))
+                if !text.isEmpty { paste(text) }
+                hud.dismiss()
             } catch {
-                hud.flash("Couldn't transcribe: \(error.localizedDescription)")
+                hud.warn("Couldn't transcribe: \(error.localizedDescription)")
             }
         }
     }
 
-    @objc private func allowAccessibility() {
-        openSettings("Privacy_Accessibility")
-    }
+    @objc private func allowAccessibility() { openSettings("Privacy_Accessibility") }
 
     @objc private func allowMicrophone() {
         if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
@@ -158,6 +155,18 @@ enum Status: Equatable {
 
     @objc private func openConfig() { Config.open() }
 
+    /// Quits, then reopens the app once this process has gone, so the new one finds the port free.
+    @objc private func restart() {
+        let relaunch = Process()
+        relaunch.executableURL = URL(filePath: "/bin/sh")
+        relaunch.arguments = [
+            "-c", "while kill -0 \"$1\" 2>/dev/null; do sleep 0.1; done; open \"$0\"",
+            Bundle.main.bundlePath, String(ProcessInfo.processInfo.processIdentifier),
+        ]
+        do { try relaunch.run() } catch { return hud.warn("Couldn't restart: \(error.localizedDescription)") }
+        NSApp.terminate(nil)
+    }
+
     @objc private func about() {
         let credits = """
             Speech recognition uses NVIDIA Parakeet TDT 0.6B v3 (nvidia/parakeet-tdt-0.6b-v3) \
@@ -169,7 +178,6 @@ enum Status: Equatable {
     }
 }
 
-/// An error carrying a message for the user.
 struct Failure: LocalizedError {
     let errorDescription: String?
     init(_ message: String) { errorDescription = message }

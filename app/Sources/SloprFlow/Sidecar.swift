@@ -1,13 +1,10 @@
 import Foundation
 
-/// Installs the Python sidecar with the bundled bootstrap.sh, keeps it running, and tracks /health.
 @MainActor final class Sidecar {
     private(set) var status = Status.starting("Installing the speech engine…") { didSet { onChange() } }
-    /// False once loaded with `[cleanup] enabled = false`, when the cleanup toggle does nothing.
     private(set) var cleanupLoaded = true
     var onChange: () -> Void = {}
 
-    /// Read once and handed to the sidecar, so both sides agree and a broken config can't stop it binding.
     private let port = Config.port
     private var base: URL { URL(string: "http://127.0.0.1:\(port)")! }
     private var process: Process?
@@ -20,12 +17,11 @@ import Foundation
         }
     }
 
-    /// Posts one utterance of 16 kHz mono float32 samples and returns the text to paste.
     func transcribe(_ samples: [Float], cleanup: Bool) async throws -> String {
         var request = URLRequest(url: base.appending(path: "transcribe")
             .appending(queryItems: [URLQueryItem(name: "cleanup", value: String(cleanup))]))
         request.httpMethod = "POST"
-        request.httpBody = samples.withUnsafeBytes { Data($0) }  // little-endian on Apple Silicon
+        request.httpBody = samples.withUnsafeBytes { Data($0) }
         request.timeoutInterval = 120
         let (data, response) = try await URLSession.shared.data(for: request)
         struct Reply: Decodable { let clean: String?; let detail: String? }
@@ -36,17 +32,16 @@ import Foundation
         return clean
     }
 
-    /// Stops the sidecar; called on quit, so it blocks until the process is gone.
     func stop() {
         quitting = true
         guard let process, process.isRunning else { return }
         process.terminate()
-        let deadline = Date.now + 2  // a model load in progress can hold up a clean exit
+        let deadline = Date.now + 2
         while process.isRunning && Date.now < deadline { usleep(20_000) }
         if process.isRunning { kill(process.processIdentifier, SIGKILL) }
     }
 
-    /// Runs bootstrap.sh; returns the last line it printed to stderr if it failed.
+    /// Returns the last line bootstrap.sh printed to stderr if it failed.
     private nonisolated static func bootstrap() async -> String? {
         let script = Bundle.main.resourceURL!.appending(path: "scripts/bootstrap.sh")
         return await Task.detached {
@@ -67,7 +62,7 @@ import Foundation
     private func launch() {
         let process = Process()
         process.executableURL = Config.dir.appending(path: "venv/bin/slopr-sidecar")
-        process.arguments = [String(port)]  // launched directly: it exits when its parent changes
+        process.arguments = [String(port)]
         process.terminationHandler = { _ in Task { @MainActor [weak self] in self?.exited() } }
         do { try process.run() } catch { status = .failed(error.localizedDescription); return }
         self.process = process
@@ -77,7 +72,7 @@ import Foundation
 
     private func exited() {
         guard !quitting else { return }
-        let delay = 1 << min(restarts, 5)  // 1, 2, 4 … 32 s, so a crash loop doesn't spin
+        let delay = 1 << min(restarts, 5)
         restarts += 1
         status = .starting("Engine stopped, restarting in \(delay) s…")
         Task {
@@ -92,7 +87,6 @@ import Foundation
         let cleanupModel: String?
     }
 
-    /// Polls /health until the models are loaded or failed to load.
     private func poll(_ process: Process) async {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase

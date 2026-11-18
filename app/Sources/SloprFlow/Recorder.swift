@@ -1,18 +1,15 @@
 import AVFoundation
 import Synchronization
 
-/// Records the default input device while the key is held.
 @MainActor final class Recorder {
     private let engine = AVAudioEngine()
     private var sink: Sink?
 
-    /// `onLevel` gets each captured buffer's RMS level on the main actor.
     func start(onLevel: @escaping @MainActor @Sendable (Float) -> Void) throws {
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, let sink = Sink(from: format) else { throw Failure("No microphone found") }
-        // @Sendable: AVFoundation calls this on its audio thread; without it the closure would
-        // inherit main-actor isolation and trap there.
+        // @Sendable, or the closure inherits main-actor isolation and traps on the audio thread.
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { @Sendable buffer, _ in
             let level = sink.append(buffer)
             Task { @MainActor in onLevel(level) }
@@ -21,7 +18,6 @@ import Synchronization
         self.sink = sink
     }
 
-    /// Stops recording and returns everything captured.
     func stop() -> [Float] {
         engine.stop()
         engine.inputNode.removeTap(onBus: 0)
@@ -30,8 +26,7 @@ import Synchronization
     }
 }
 
-/// Converts captured buffers, in whatever format the device delivers, to 16 kHz mono float32 and
-/// keeps them. `append` runs on the audio thread.
+/// Collects captured buffers as 16 kHz mono float32.
 final class Sink: Sendable {
     private let state: Mutex<(converter: AVAudioConverter, samples: [Float])>
 
@@ -43,13 +38,12 @@ final class Sink: Sendable {
         state = Mutex((converter, []))
     }
 
-    /// Converts and keeps `buffer`; returns its RMS level.
+    /// Returns the buffer's RMS level.
     func append(_ buffer: AVAudioPCMBuffer) -> Float {
         let new = state.withLock { Self.convert(buffer, &$0) }
         return new.isEmpty ? 0 : (new.reduce(0) { $0 + $1 * $1 } / Float(new.count)).squareRoot()
     }
 
-    /// Drains what the converter still holds and returns all samples.
     func finish() -> [Float] {
         state.withLock { state in
             while !Self.convert(nil, &state).isEmpty {}
@@ -57,7 +51,7 @@ final class Sink: Sendable {
         }
     }
 
-    /// Converts `buffer`, or drains the converter when nil, appending to and returning the new samples.
+    /// A nil `buffer` drains the converter. Returns the new samples.
     private static func convert(_ buffer: AVAudioPCMBuffer?,
                                 _ state: inout (converter: AVAudioConverter, samples: [Float])) -> [Float] {
         let format = state.converter.outputFormat

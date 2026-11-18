@@ -1,6 +1,5 @@
 import AppKit
 
-/// `~/Library/Application Support/SloprFlow/config.toml`, shared with the sidecar.
 enum Config {
     static let dir = URL.applicationSupportDirectory.appending(path: "SloprFlow")
     static let file = dir.appending(path: "config.toml")
@@ -19,33 +18,47 @@ enum Config {
         [server]
         port = 48123
 
+        [hotkey]
+        key = "right_option"   # hold to talk; or "fn", "left_option", "left_command",
+        # "right_command", "left_control", "right_control"
+
         """
 
-    static var port: Int { port(in: (try? String(contentsOf: file, encoding: .utf8)) ?? "") }
+    private static var text: String { (try? String(contentsOf: file, encoding: .utf8)) ?? "" }
+    static var port: Int { port(in: text) }
+    static var hotkey: Hotkey.Key { hotkey(in: text) }
 
-    /// `[server] port` from TOML text, or 48123. Handles the flat `key = value` subset the file uses.
     static func port(in toml: String) -> Int {
-        var section = ""
+        value("port", section: "server", in: toml).flatMap { Int($0) } ?? 48123
+    }
+
+    /// Right Option when the key is missing or not a known name.
+    static func hotkey(in toml: String) -> Hotkey.Key {
+        value("key", section: "hotkey", in: toml).flatMap { Hotkey.Key.named[$0] } ?? .rightOption
+    }
+
+    /// The value of `key` in `[section]`, without quotes, from the flat `key = value` subset the file uses.
+    private static func value(_ key: String, section: String, in toml: String) -> String? {
+        var current = ""
         for line in toml.split(whereSeparator: \.isNewline) {
             let line = line.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)[0]
                 .trimmingCharacters(in: .whitespaces)
             if line.hasPrefix("[") {
-                section = line
-            } else if section == "[server]" {
+                current = line
+            } else if current == "[\(section)]" {
                 let kv = line.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
-                if kv.count == 2, kv[0] == "port", let port = Int(kv[1]) { return port }
+                if kv.count == 2, kv[0] == key { return kv[1].trimmingCharacters(in: ["\"", "'"]) }
             }
         }
-        return 48123
+        return nil
     }
 
-    /// Opens the config in the user's editor, writing the defaults first if it doesn't exist.
     @MainActor static func open() {
         if !FileManager.default.fileExists(atPath: file.path) {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             try? defaults.write(to: file, atomically: true, encoding: .utf8)
         }
-        if !NSWorkspace.shared.open(file) {  // no app claims .toml
+        if !NSWorkspace.shared.open(file) {
             NSWorkspace.shared.open([file], withApplicationAt: URL(filePath: "/System/Applications/TextEdit.app"),
                                     configuration: NSWorkspace.OpenConfiguration())
         }

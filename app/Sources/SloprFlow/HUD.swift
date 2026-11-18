@@ -1,10 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// A floating pill below the menu bar that never takes focus: waveform, spinner, then text.
 @MainActor final class HUD {
     @MainActor @Observable final class Model {
-        enum Phase { case listening, thinking, text(String, hint: Bool) }
+        enum Phase { case listening, thinking, warning(String) }
         var phase = Phase.listening
         var levels = [Float](repeating: 0, count: 32)
     }
@@ -38,11 +37,10 @@ import SwiftUI
 
     func think() { show(.thinking) }
 
-    /// Shows `text` for a moment; with `hint`, longer and with a "Press ⌘V" line.
-    func flash(_ text: String, hint: Bool = false) {
-        show(.text(text, hint: hint))
+    func warn(_ message: String) {
+        show(.warning(message))
         hide = Task {
-            try? await Task.sleep(for: .seconds(hint ? 5 : 1.5))
+            try? await Task.sleep(for: .seconds(1.5))
             if !Task.isCancelled { panel.orderOut(nil) }
         }
     }
@@ -80,11 +78,8 @@ private struct HUDView: View {
                 .animation(.linear(duration: 0.08), value: model.levels)
             case .thinking:
                 ProgressView().controlSize(.small).frame(height: 24)
-            case .text(let text, let hint):
-                VStack(spacing: 2) {
-                    Text(text).lineLimit(3).multilineTextAlignment(.center)
-                    if hint { Text("Press ⌘V to paste").font(.caption).foregroundStyle(.secondary) }
-                }
+            case .warning(let message):
+                Text(message).lineLimit(3).multilineTextAlignment(.center)
             }
         }
         .padding(.horizontal, 16)
