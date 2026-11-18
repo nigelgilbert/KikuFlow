@@ -30,7 +30,8 @@ triangle when the models failed to load (the menu shows the error).
 
 - **Accessibility**, asked for at launch: the Right Option hotkey and the ⌘V paste need it.
   The hotkey starts working as soon as it's granted. If paste can't be sent, the text stays on
-  the clipboard and the HUD says "Press ⌘V".
+  the clipboard and the HUD says "Press ⌘V". The paste sends the key in the V position of a
+  US layout, so on layouts like Dvorak it may not be ⌘V.
 - **Microphone**, asked for the first time you hold the key.
 
 While either is missing the menu has an item that opens the right System Settings pane. The
