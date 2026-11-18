@@ -80,7 +80,7 @@ private struct HUDView: View {
             switch model.phase {
             case .listening:
                 // The newest bars that fit: each is 3 wide with a gap of 3, inside 16 of padding a side.
-                let bars = model.levels.suffix(Int((model.width - 32 + 3) / 6))
+                let bars = model.levels.suffix(max(0, Int((model.width - 32 + 3) / 6)))
                 HStack(spacing: 3) {
                     ForEach(bars.indices, id: \.self) { i in
                         Capsule().frame(width: 3, height: 3 + CGFloat(bars[i]) * 21)
