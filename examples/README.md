@@ -12,12 +12,14 @@ def on_done(t) -> None                # after the log entry is written
 def on_error(e) -> str | None         # after a failure; returns the message to show and keep
 ```
 
-Return a string to replace the value, nothing to leave it, `""` to stop there.
+A text hook returns a string to replace the text, nothing to leave it, or `""` to stop there.
+`on_error` returns the message, nothing for the default one, or `""` for none.
 
 Put hook files in `~/Library/Application Support/SloprFlow/hooks/`. They run in filename order.
 Choose "Restart Slopr Flow" after an edit.
 
-A hook that raises stops the dictation, and the message goes to the HUD and `errors.txt`.
+A hook that raises stops the dictation. The message goes to `errors.txt`, and to the HUD when
+nothing has been pasted yet.
 
 ## Vocabulary
 
@@ -48,8 +50,8 @@ def on_cleaned(t):
 
 ## Overriding the cleanup
 
-`verbatim.py` pastes what you said, word for word, when you start with "verbatim". It keeps the
-transcript in `on_transcribed` and decides in `on_cleaned`.
+`verbatim.py` pastes what you said, word for word, when you start with "verbatim". `vocabulary.py`
+sorts after it, so the transcript it pastes does not have the vocabulary fixes.
 
 ```python
 raw = ""
