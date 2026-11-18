@@ -38,6 +38,7 @@ enum Status: Equatable {
     private let cleanupItem = NSMenuItem(title: "Clean Up Text", action: #selector(toggleCleanup), keyEquivalent: "")
 
     private let sidecar = Sidecar()
+    private lazy var hotkey = Hotkey { [weak self] down in self?.hotkeyChanged(down: down) }
     private var activity: Status? { didSet { refresh() } }
     private var status: Status { activity ?? sidecar.status }
 
@@ -65,6 +66,7 @@ enum Status: Equatable {
         refresh()
         sidecar.onChange = { [weak self] in self?.refresh() }
         sidecar.start()
+        Task { while !hotkey.start() { try? await Task.sleep(for: .seconds(2)) } }
     }
 
     func applicationWillTerminate(_ notification: Notification) { sidecar.stop() }
@@ -77,6 +79,10 @@ enum Status: Equatable {
         if case .failed(let error) = status { statusLine.toolTip = error } else { statusLine.toolTip = nil }
         cleanupItem.state = cleanup && sidecar.cleanupLoaded ? .on : .off
         cleanupItem.isEnabled = sidecar.cleanupLoaded
+    }
+
+    private func hotkeyChanged(down: Bool) {
+        activity = down ? .listening : nil
     }
 
     @objc private func toggleCleanup() { cleanup.toggle(); refresh() }
