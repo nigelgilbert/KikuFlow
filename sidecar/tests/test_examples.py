@@ -10,10 +10,10 @@ BLOCKS = re.findall(r"```python\n(.*?)```", README.read_text(), re.DOTALL)
 
 
 def test_readme_has_examples():
-    assert len(BLOCKS) == 4
+    assert len(BLOCKS) == 7
 
 
 @pytest.mark.parametrize("source", BLOCKS)
 def test_example_is_a_working_hook_file(tmp_path: Path, source: str):
     (tmp_path / "example.py").write_text(source)
-    assert any(load_hooks([tmp_path]).values())
+    assert any(load_hooks(tmp_path).values())

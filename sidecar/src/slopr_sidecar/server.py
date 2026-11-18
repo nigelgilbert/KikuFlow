@@ -11,7 +11,6 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime
 from functools import partial
 
 import numpy as np
@@ -20,7 +19,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 
 from .cleanup import Cleaner, is_plausible, load_cleaner
 from .config import Config, load_config
-from .lifecycle import HOOK_DIRS, Hooks, Utterance, fire, load_hooks
+from .lifecycle import HOOK_DIR, Hooks, fire, load_hooks, write_log
 from .stt import SAMPLE_RATE, Transcriber, decode_audio, load_transcriber
 
 log = logging.getLogger("uvicorn.error")
@@ -51,7 +50,7 @@ def load_models() -> None:
         config = load_config()
         transcribe = load_transcriber(config.stt_engine, config.stt_model)
         clean = load_cleaner(config.cleanup_model) if config.cleanup_enabled else None
-        hooks = load_hooks(HOOK_DIRS)
+        hooks = load_hooks(HOOK_DIR)
         # One throwaway pass each, so the first dictation doesn't pay for kernel compilation.
         transcribe(np.zeros(SAMPLE_RATE, np.float32))
         if clean:
@@ -89,8 +88,8 @@ async def health() -> dict:
     }
 
 
-def run(audio: np.ndarray, cleanup: bool, at: datetime) -> tuple[dict, Callable[[], None]]:
-    """The /transcribe reply, and the on_logged call to make once it has been sent."""
+def run(audio: np.ndarray, cleanup: bool) -> tuple[dict, Callable[[], None]]:
+    """The /transcribe reply, and what to run once it has been sent."""
     m = state.models
     if m is None:
         raise HTTPException(503, state.error or "models are loading")
@@ -98,23 +97,34 @@ def run(audio: np.ndarray, cleanup: bool, at: datetime) -> tuple[dict, Callable[
     # A tap shorter than 0.1 s holds no speech.
     raw = m.transcribe(audio) if len(audio) >= SAMPLE_RATE // 10 else ""
     transcribed = time.perf_counter()
-    u = Utterance(at, raw, raw)
-    fire(m.hooks, "on_transcribed", u)
-    if cleanup and m.clean and u.text:
-        candidate = m.clean(u.text)
-        if is_plausible(u.text, candidate):
-            u.text = candidate
-    fire(m.hooks, "on_cleaned", u)
+    text = fire(m.hooks, "on_transcribed", raw)
+    if cleanup and m.clean and text:
+        candidate = m.clean(text)
+        if is_plausible(text, candidate):
+            text = candidate
+    text = fire(m.hooks, "on_cleaned", text)
     cleaned = time.perf_counter()
     reply = {
         "raw": raw,
-        "clean": u.text,
+        "clean": text,
         "timings": {
             "stt_ms": round((transcribed - start) * 1000),
             "cleanup_ms": round((cleaned - transcribed) * 1000),
         },
     }
-    return reply, partial(fire, m.hooks, "on_logged", u)
+    return reply, partial(after_reply, m.hooks, text)
+
+
+def after_reply(hooks: Hooks, text: str) -> None:
+    """Fire on_output, log the text it leaves, then fire on_done."""
+    text = fire(hooks, "on_output", text)
+    if not text:
+        return
+    try:
+        write_log(text)
+    except Exception:
+        log.exception("log write failed")
+    fire(hooks, "on_done", text)
 
 
 async def on_executor[T](fn: Callable[[], T]) -> T:
@@ -123,14 +133,13 @@ async def on_executor[T](fn: Callable[[], T]) -> T:
 
 @app.post("/transcribe")
 async def transcribe(request: Request, tasks: BackgroundTasks, cleanup: bool = True) -> dict:
-    at = datetime.now().astimezone()
     try:
         audio = decode_audio(await request.body())
     except (ValueError, EOFError, wave.Error) as e:
         raise HTTPException(400, str(e)) from e
-    reply, logged = await on_executor(partial(run, audio, cleanup, at))
+    reply, after = await on_executor(partial(run, audio, cleanup))
     # Background tasks run after the response is sent.
-    tasks.add_task(on_executor, logged)
+    tasks.add_task(on_executor, after)
     return reply
 
 
