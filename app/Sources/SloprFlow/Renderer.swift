@@ -6,6 +6,17 @@ enum HUDState: Equatable {
     case listening(level: Float)  // 0...1, the newest mic level
     case thinking
     case warning(String)
+
+    /// What a renderer program gets on its input, without the newline.
+    var line: String {
+        switch self {
+        case .hidden: "hidden"
+        case .listening(let level): "listening " + String(format: "%.2f", min(max(level, 0), 1))
+        case .thinking: "thinking"
+        case .warning(let text):
+            "warning " + text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).joined(separator: " ")
+        }
+    }
 }
 
 @MainActor protocol Renderer { func render(_ state: HUDState) }
