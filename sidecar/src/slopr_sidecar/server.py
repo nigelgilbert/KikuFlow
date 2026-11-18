@@ -17,7 +17,7 @@ import numpy as np
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 
-from .cleanup import Cleaner, is_plausible, load_cleaner
+from .cleanup import Cleaner, accept, load_cleaner
 from .config import Config, load_config
 from .lifecycle import HOOK_DIR, Hooks, fire, load_hooks, write_log
 from .stt import SAMPLE_RATE, Transcriber, decode_audio, load_transcriber
@@ -100,7 +100,7 @@ def run(audio: np.ndarray, cleanup: bool) -> tuple[dict, Callable[[], None]]:
     text = fire(m.hooks, "on_transcribed", raw)
     if cleanup and m.clean and text:
         candidate = m.clean(text)
-        if is_plausible(text, candidate):
+        if accept(text, candidate, True):
             text = candidate
     text = fire(m.hooks, "on_cleaned", text)
     cleaned = time.perf_counter()

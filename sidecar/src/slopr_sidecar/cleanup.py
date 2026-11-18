@@ -71,7 +71,9 @@ def build_messages(model: str, prompt_file: str, placement: str) -> Callable[[st
     return lambda raw: [{"role": "system", "content": prompt}, {"role": "user", "content": raw}]
 
 
-def load_cleaner(model_name: str, prompt_file: str = "", placement: str = "") -> Cleaner:
+def load_cleaner(
+    model_name: str, prompt_file: str = "", placement: str = "", safety_check: bool = True
+) -> Cleaner:
     messages = build_messages(model_name, prompt_file, placement)
     model, tokenizer = load(model_name)[:2]
     greedy = make_sampler(temp=0.0)
@@ -80,11 +82,18 @@ def load_cleaner(model_name: str, prompt_file: str = "", placement: str = "") ->
         prompt = tokenizer.apply_chat_template(
             messages(raw), add_generation_prompt=True, enable_thinking=False, tokenize=False
         )
-        # Output longer than twice the input fails is_plausible anyway.
-        max_tokens = 2 * len(tokenizer.encode(raw)) + 16
+        # Output longer than twice the input fails is_plausible anyway; without the check, leave
+        # room for prompts that expand the text but still stop a runaway generation.
+        n = len(tokenizer.encode(raw))
+        max_tokens = 2 * n + 16 if safety_check else 4 * n + 256
         return generate(model, tokenizer, prompt, max_tokens=max_tokens, sampler=greedy).strip()
 
     return clean
+
+
+def accept(raw: str, clean: str, safety_check: bool) -> bool:
+    """Whether to use the cleanup output `clean` in place of `raw`."""
+    return is_plausible(raw, clean) if safety_check else bool(clean.strip())
 
 
 def _words(text: str) -> list[str]:
