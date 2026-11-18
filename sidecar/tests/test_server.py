@@ -166,8 +166,9 @@ def test_safety_check_off_keeps_any_non_empty_cleanup(fakes: Fakes, cleaned: str
         assert client.post("/transcribe", content=SPEECH).json()["clean"] == clean
 
 
-def test_bad_audio_is_rejected(client: TestClient):
-    assert client.post("/transcribe", content=b"RIFF").status_code == 400
+def test_bad_audio_is_rejected_with_a_detail(client: TestClient):
+    response = client.post("/transcribe", content=b"RIFF")  # EOFError with no message
+    assert (response.status_code, response.json()) == (400, {"detail": "EOFError"})
 
 
 def test_reload_rereads_config(fakes: Fakes, client: TestClient):

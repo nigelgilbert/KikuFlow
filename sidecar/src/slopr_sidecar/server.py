@@ -159,7 +159,7 @@ async def transcribe(request: Request, tasks: BackgroundTasks, cleanup: bool = T
     try:
         audio = decode_audio(await request.body())
     except (ValueError, EOFError, wave.Error) as e:
-        raise HTTPException(400, str(e)) from e
+        raise HTTPException(400, str(e) or type(e).__name__) from e
     reply, after = await on_executor(partial(run, audio, cleanup))
     # Background tasks run after the response is sent.
     tasks.add_task(on_executor, after)
