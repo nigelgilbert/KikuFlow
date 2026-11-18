@@ -1,3 +1,4 @@
+import asyncio
 import threading
 from collections.abc import Iterator
 from datetime import datetime
@@ -15,6 +16,7 @@ RAW = "um so we should uh meet on Friday"
 
 # A hook file that appends each call to calls.txt next to it, after the other hook files.
 RECORDER = """
+import asyncio
 import threading
 from pathlib import Path
 
@@ -217,3 +219,20 @@ def test_hook_file_failing_to_load_leaves_health_alone(hooks: Path, client: Test
     wait_for_load()
     health = client.get("/health").json()
     assert (health["ready"], health["error"]) == (True, None)
+
+
+def test_reply_is_sent_before_on_logged(hooks: Path, client: TestClient):
+    wait_for_load()
+    at_reply = []
+
+    async def receive():
+        return {"type": "http.request", "body": SPEECH}
+
+    async def send(message):
+        if message["type"] == "http.response.body":
+            at_reply.append([c[0] for c in calls(hooks)])
+
+    path = {"type": "http", "method": "POST", "path": "/transcribe", "query_string": b""}
+    asyncio.run(server.app({**path, "headers": []}, receive, send))
+    assert at_reply == [["on_transcribed", "on_cleaned"]]
+    assert calls(hooks)[-1][0] == "on_logged"
