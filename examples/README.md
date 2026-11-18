@@ -23,11 +23,10 @@ still completes. To see that output, quit Slopr Flow and start its binary from T
 build from this repo `"app/build/Slopr Flow.app/Contents/MacOS/SloprFlow"`.
 
 Put your hook files in `~/Library/Application Support/SloprFlow/hooks/`, a folder you create
-(`mkdir -p ~/Library/Application\ Support/SloprFlow/hooks`). The built-in ones ship
-with the sidecar in `sidecar/src/slopr_sidecar/hooks/`, and a file of yours with the same name
-replaces the built-in one. All hook files load in filename order, and the hooks for one point
-run in that order, each seeing the text the previous one left. Hook files are read when the
-sidecar loads its models, so after an edit choose "Restart Slopr Flow" in the menu.
+(`mkdir -p ~/Library/Application\ Support/SloprFlow/hooks`). Hook files load in filename
+order, and the hooks for one point run in that order, each seeing the text the previous one
+left. Hook files are read when the sidecar loads its models, so after an edit choose "Restart
+Slopr Flow" in the menu.
 
 ## Vocabulary
 
@@ -80,29 +79,19 @@ def on_cleaned(t):
         return rest
 ```
 
-## Overriding the log
+## Your own log
 
-The built-in `log.py` keeps the last 100 dictations in
-`~/Library/Application Support/SloprFlow/log.txt` ("Open Log…" in the menu). A `log.py` of
-your own replaces it; this one adds the time and keeps 1000.
+The app keeps the last 100 dictations in `~/Library/Application Support/SloprFlow/log.txt`
+("Open Log…" in the menu). `archive.py` also keeps every one, with the time, in `archive.txt`
+next to it.
 
 ```python
 from datetime import datetime
 
 from slopr_sidecar.config import APP_DIR
 
-LOG = APP_DIR / "log.txt"
-
 
 def on_logged(t):
-    old = LOG.read_text("utf-8").strip().split("\n\n") if LOG.exists() else []
-    entry = f"{datetime.now():%Y-%m-%d %H:%M}  {' '.join(t.split())}"
-    LOG.write_text("\n\n".join([*filter(None, old), entry][-1000:]), "utf-8")
-```
-
-An empty `log.py` turns the log off:
-
-```sh
-mkdir -p ~/Library/Application\ Support/SloprFlow/hooks
-touch ~/Library/Application\ Support/SloprFlow/hooks/log.py
+    with (APP_DIR / "archive.txt").open("a", encoding="utf-8") as f:
+        f.write(f"{datetime.now():%Y-%m-%d %H:%M}  {' '.join(t.split())}\n")
 ```

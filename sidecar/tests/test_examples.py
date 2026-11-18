@@ -16,4 +16,4 @@ def test_readme_has_examples():
 @pytest.mark.parametrize("source", BLOCKS)
 def test_example_is_a_working_hook_file(tmp_path: Path, source: str):
     (tmp_path / "example.py").write_text(source)
-    assert any(load_hooks([tmp_path]).values())
+    assert any(load_hooks(tmp_path).values())

@@ -19,7 +19,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 
 from .cleanup import Cleaner, is_plausible, load_cleaner
 from .config import Config, load_config
-from .lifecycle import HOOK_DIRS, Hooks, fire, load_hooks
+from .lifecycle import HOOK_DIR, Hooks, fire, load_hooks, write_log
 from .stt import SAMPLE_RATE, Transcriber, decode_audio, load_transcriber
 
 log = logging.getLogger("uvicorn.error")
@@ -50,7 +50,7 @@ def load_models() -> None:
         config = load_config()
         transcribe = load_transcriber(config.stt_engine, config.stt_model)
         clean = load_cleaner(config.cleanup_model) if config.cleanup_enabled else None
-        hooks = load_hooks(HOOK_DIRS)
+        hooks = load_hooks(HOOK_DIR)
         # One throwaway pass each, so the first dictation doesn't pay for kernel compilation.
         transcribe(np.zeros(SAMPLE_RATE, np.float32))
         if clean:
@@ -88,8 +88,8 @@ async def health() -> dict:
     }
 
 
-def run(audio: np.ndarray, cleanup: bool) -> tuple[dict, Callable[[], object]]:
-    """The /transcribe reply, and the on_logged call to make once it has been sent."""
+def run(audio: np.ndarray, cleanup: bool) -> tuple[dict, Callable[[], None]]:
+    """The /transcribe reply, and what to run once it has been sent."""
     m = state.models
     if m is None:
         raise HTTPException(503, state.error or "models are loading")
@@ -112,7 +112,18 @@ def run(audio: np.ndarray, cleanup: bool) -> tuple[dict, Callable[[], object]]:
             "cleanup_ms": round((cleaned - transcribed) * 1000),
         },
     }
-    return reply, partial(fire, m.hooks, "on_logged", text)
+    return reply, partial(after_reply, m.hooks, text)
+
+
+def after_reply(hooks: Hooks, text: str) -> None:
+    """Write the log entry, then fire on_logged."""
+    if not text:
+        return
+    try:
+        write_log(text)
+    except Exception:
+        log.exception("log write failed")
+    fire(hooks, "on_logged", text)
 
 
 async def on_executor[T](fn: Callable[[], T]) -> T:
@@ -125,9 +136,9 @@ async def transcribe(request: Request, tasks: BackgroundTasks, cleanup: bool = T
         audio = decode_audio(await request.body())
     except (ValueError, EOFError, wave.Error) as e:
         raise HTTPException(400, str(e)) from e
-    reply, logged = await on_executor(partial(run, audio, cleanup))
+    reply, after = await on_executor(partial(run, audio, cleanup))
     # Background tasks run after the response is sent.
-    tasks.add_task(on_executor, logged)
+    tasks.add_task(on_executor, after)
     return reply
 
 

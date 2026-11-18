@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from slopr_sidecar import config, server
+from slopr_sidecar import lifecycle, server
 from slopr_sidecar.config import Config
 
 SPEECH = np.zeros(16_000, "<f4").tobytes()  # one second of raw float32 PCM
@@ -26,6 +26,15 @@ def record(point, t):
 def on_transcribed(t): record("on_transcribed", t)
 def on_cleaned(t): record("on_cleaned", t)
 def on_logged(t): record("on_logged", t)
+"""
+
+# A hook file that keeps a copy of the log as it stands when on_logged fires.
+LOG_READER = """
+from pathlib import Path
+
+def on_logged(t):
+    here = Path(__file__).parent
+    (here / "seen.txt").write_text((here.parent / "log.txt").read_text())
 """
 
 
@@ -69,10 +78,10 @@ def calls(hooks: Path) -> list[list[str]]:
 
 @pytest.fixture
 def fakes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, hooks: Path) -> Fakes:
-    """Fake models, and temporary stand-ins for the app directory and both hook directories."""
+    """Fake models, and temporary stand-ins for the hook directory and the log."""
     fakes = Fakes()
-    monkeypatch.setattr(config, "APP_DIR", tmp_path)
-    monkeypatch.setattr(server, "HOOK_DIRS", (tmp_path / "builtin", hooks))
+    monkeypatch.setattr(server, "HOOK_DIR", hooks)
+    monkeypatch.setattr(lifecycle, "LOG", tmp_path / "log.txt")
     monkeypatch.setattr(server, "load_config", lambda: fakes.config)
     monkeypatch.setattr(server, "load_transcriber", fakes.load_transcriber)
     monkeypatch.setattr(server, "load_cleaner", fakes.load_cleaner)
@@ -200,9 +209,9 @@ def test_hook_returning_empty_text_stops_the_pipeline(
 def test_run_leaves_on_logged_for_after_the_reply(hooks: Path, client: TestClient):
     wait_for_load()
     audio = np.zeros(16_000, "<f4")
-    _, logged = server.executor.submit(server.run, audio, True).result()
+    _, after = server.executor.submit(server.run, audio, True).result()
     assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned"]
-    logged()
+    after()
     assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", "on_logged"]
 
 
@@ -234,4 +243,39 @@ def test_reply_is_sent_before_on_logged(hooks: Path, client: TestClient):
     path = {"type": "http", "method": "POST", "path": "/transcribe", "query_string": b""}
     asyncio.run(server.app({**path, "headers": []}, receive, send))
     assert at_reply == [["on_transcribed", "on_cleaned"]]
+    assert calls(hooks)[-1][0] == "on_logged"
+
+
+def test_log_is_written_without_hook_files(hooks: Path, tmp_path: Path, client: TestClient):
+    (hooks / "zz_recorder.py").unlink()
+    client.post("/reload")
+    client.post("/transcribe", content=SPEECH)
+    assert (tmp_path / "log.txt").read_text() == "We should meet on Friday."
+
+
+def test_log_py_is_just_another_hook_file(hooks: Path, tmp_path: Path, client: TestClient):
+    (hooks / "log.py").write_text("")
+    client.post("/reload")
+    client.post("/transcribe", content=SPEECH)
+    assert (tmp_path / "log.txt").read_text() == "We should meet on Friday."
+    assert calls(hooks)[-1][0] == "on_logged"
+
+
+def test_on_logged_fires_after_the_entry_is_written(hooks: Path, client: TestClient):
+    (hooks / "reader.py").write_text(LOG_READER)
+    client.post("/reload")
+    client.post("/transcribe", content=SPEECH)
+    assert (hooks / "seen.txt").read_text() == "We should meet on Friday."
+
+
+def test_failed_log_write_is_logged_and_on_logged_still_fires(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    hooks: Path,
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+):
+    monkeypatch.setattr(lifecycle, "LOG", tmp_path / "missing/log.txt")
+    client.post("/transcribe", content=SPEECH)
+    assert "log write failed" in caplog.text
     assert calls(hooks)[-1][0] == "on_logged"

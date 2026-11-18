@@ -1,8 +1,8 @@
-"""Lifecycle hooks: the on_transcribed, on_cleaned and on_logged functions of plain .py files."""
+"""The on_transcribed, on_cleaned and on_logged hooks of plain .py files, and the log."""
 
 import logging
 import runpy
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from pathlib import Path
 
 from .config import APP_DIR
@@ -10,20 +10,20 @@ from .config import APP_DIR
 log = logging.getLogger("uvicorn.error")
 
 POINTS = ("on_transcribed", "on_cleaned", "on_logged")
-HOOK_DIRS = (Path(__file__).with_name("hooks"), APP_DIR / "hooks")
+HOOK_DIR = APP_DIR / "hooks"
+LOG = APP_DIR / "log.txt"
 
 type Hooks = dict[str, list[Callable[[str], str | None]]]
 
 
-def load_hooks(dirs: Iterable[Path]) -> Hooks:
-    """The hooks of every *.py in `dirs`, in filename order; a later dir's file replaces a name."""
-    files = {path.name: path for d in dirs for path in d.glob("*.py")}
+def load_hooks(directory: Path) -> Hooks:
+    """The hooks of every *.py in `directory`, in filename order."""
     hooks: Hooks = {point: [] for point in POINTS}
-    for name in sorted(files):
+    for path in sorted(directory.glob("*.py")):
         try:
-            names = runpy.run_path(str(files[name]))
+            names = runpy.run_path(str(path))
         except Exception:
-            log.exception("hook file %s failed to load", files[name])
+            log.exception("hook file %s failed to load", path)
             continue
         for point in POINTS:
             if point in names:
@@ -44,3 +44,9 @@ def fire(hooks: Hooks, point: str, text: str) -> str:
         if point != "on_logged" and isinstance(new, str):  # on_logged's return is ignored
             text = new
     return text
+
+
+def write_log(text: str) -> None:
+    """Append `text` to the log as one line, keeping the last 100."""
+    old = LOG.read_text("utf-8").strip().split("\n\n") if LOG.exists() else []
+    LOG.write_text("\n\n".join([*filter(None, old), " ".join(text.split())][-100:]), "utf-8")
