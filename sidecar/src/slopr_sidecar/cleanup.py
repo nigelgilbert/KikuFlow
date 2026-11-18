@@ -51,19 +51,19 @@ def _read_prompt_file(prompt_file: str) -> str:
     return prompt
 
 
-def build_messages(model: str, prompt_file: str, placement: str) -> Callable[[str], Messages]:
-    """The chat for each transcript: `prompt_file` or the model's built-in prompt, placed."""
+def build_messages(model: str, prompt_file: str, prompt_role: str) -> Callable[[str], Messages]:
+    """The chat for each transcript: `prompt_file` or the model's built-in prompt, in its role."""
     preset = PRESETS.get(model)
-    placement = placement or (preset[1] if preset else "system")
-    if placement not in ("system", "user"):
-        raise ValueError(f'cleanup.placement must be "system" or "user", got {placement!r}')
+    prompt_role = prompt_role or (preset[1] if preset else "system")
+    if prompt_role not in ("system", "user"):
+        raise ValueError(f'cleanup.prompt_role must be "system" or "user", got {prompt_role!r}')
     if prompt_file:
         prompt = _read_prompt_file(prompt_file)
     elif preset:
         prompt = preset[0]()
     else:
         raise ValueError(f"unsupported cleanup.model {model!r}: set cleanup.prompt_file to use it")
-    if placement == "user":
+    if prompt_role == "user":
         # One user turn, no system role.
         prompt = prompt.strip()
         return lambda raw: [{"role": "user", "content": f"{prompt}\n\n{raw}"}]
@@ -73,7 +73,7 @@ def build_messages(model: str, prompt_file: str, placement: str) -> Callable[[st
 
 def load_cleaner(config: Config) -> Cleaner:
     c = config
-    messages = build_messages(c.cleanup_model, c.cleanup_prompt_file, c.cleanup_placement)
+    messages = build_messages(c.cleanup_model, c.cleanup_prompt_file, c.cleanup_prompt_role)
     model, tokenizer = load(c.cleanup_model)[:2]
     greedy = make_sampler(temp=0.0)
 

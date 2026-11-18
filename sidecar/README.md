@@ -108,7 +108,7 @@ enabled = true
 model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
 # or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
 prompt_file = ""      # a text file whose contents replace the model's built-in prompt
-placement = ""        # "system" or "user"; empty means the model's built-in placement
+prompt_role = ""      # "system" or "user": the chat role the prompt is sent as; rarely needed
 safety_check = true   # false keeps whatever the model returns
 
 [server]
@@ -117,11 +117,11 @@ port = 48123
 
 `prompt_file`: `~` expanded, relative to `~/Library/Application Support/SloprFlow/`, read at
 model load (so `/reload` picks up edits); missing or empty is a load error naming the path.
-`placement`: `"system"` sends the prompt verbatim as the system turn and the transcript as the
+`prompt_role`: `"system"` sends the prompt verbatim as the system turn and the transcript as the
 user turn; `"user"` sends one user turn, the stripped prompt, a blank line, the transcript; any
-other value is a load error. Empty means the built-in model's placement (ReFyne `user`, Utter
+other value is a load error. Empty means the model's built-in role (ReFyne `user`, Utter
 `system`), or `system` for any other model. A model whose chat template has no system role
-(Gemma 2, for one) fails to load with the template's error; set `placement = "user"`. Any mlx-lm
+(Gemma 2, for one) fails to load with the template's error; set `prompt_role = "user"`. Any mlx-lm
 chat model works with `prompt_file`; an unknown model without it is a load error. The built-in
 models are fine-tunes trained on one exact prompt, so another prompt likely cleans up worse.
 `safety_check = false` uses any non-empty output and raises the generation cap from 2x to 4x the

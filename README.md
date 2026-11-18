@@ -55,7 +55,7 @@ enabled = true
 model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
 # or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
 # prompt_file = ""      # a text file whose contents replace the model's built-in prompt
-# placement = ""        # "system" or "user"; empty means the model's built-in placement
+# prompt_role = ""      # "system" or "user": the chat role the prompt is sent as; rarely needed
 # safety_check = true   # false keeps whatever the model returns
 
 [server]
@@ -76,9 +76,9 @@ and on without reloading anything.
 
 Set `prompt_file` to a text file holding your prompt (a relative path is in
 `~/Library/Application Support/SloprFlow/`) and choose "Restart Slopr Flow" after editing it.
-With `placement = "system"` the prompt is the system message and your words are the user
+With `prompt_role = "system"` the prompt is the system message and your words are the user
 message; with `"user"` the prompt and your words share one user message; empty keeps the
-built-in model's placement, or `"system"` for any other model. Use `"user"` for a model whose
+model's built-in role, or `"system"` for any other model. Use `"user"` for a model whose
 chat template has no system role. With `prompt_file` set, `model` can be any mlx-lm chat model.
 Two caveats: the built-in models are fine-tunes trained on one exact prompt, so a new prompt for
 them will likely clean up worse; and a prompt that is not a cleanup (translate, summarize,

@@ -13,7 +13,7 @@ def test_missing_file_gives_defaults(tmp_path: Path):
         cleanup_enabled=True,
         cleanup_model="ReFyneLabs/simplewords-dictation-cleanup-v3",
         cleanup_prompt_file="",
-        cleanup_placement="",
+        cleanup_prompt_role="",
         cleanup_safety_check=True,
         port=48123,
     )
@@ -44,9 +44,11 @@ def test_wrongly_typed_value_is_rejected(tmp_path: Path):
 
 def test_cleanup_prompt_keys_are_read(tmp_path: Path):
     path = tmp_path / "config.toml"
-    path.write_text('[cleanup]\nprompt_file = "p.txt"\nplacement = "user"\nsafety_check = false\n')
+    path.write_text(
+        '[cleanup]\nprompt_file = "p.txt"\nprompt_role = "user"\nsafety_check = false\n'
+    )
     config = load_config(path)
-    assert (config.cleanup_prompt_file, config.cleanup_placement) == ("p.txt", "user")
+    assert (config.cleanup_prompt_file, config.cleanup_prompt_role) == ("p.txt", "user")
     assert config.cleanup_safety_check is False
 
 
@@ -54,7 +56,7 @@ def test_cleanup_prompt_keys_are_read(tmp_path: Path):
     ("line", "error"),
     [
         ("prompt_file = 1", "cleanup_prompt_file must be str"),
-        ("placement = true", "cleanup_placement must be str"),
+        ("prompt_role = true", "cleanup_prompt_role must be str"),
         ('safety_check = "false"', "cleanup_safety_check must be bool"),
     ],
 )

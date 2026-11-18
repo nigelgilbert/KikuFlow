@@ -85,7 +85,7 @@ def test_refyne_prompt_is_stripped_into_the_user_turn(
     assert downloads == [(REFYNE, "system_v2.txt")]
 
 
-def test_built_in_placement_can_be_overridden():
+def test_built_in_prompt_role_can_be_overridden():
     messages = build_messages(UTTER, "", "user")("hi")
     assert [m["role"] for m in messages] == ["user"]
     assert messages[0]["content"].endswith("\n\nhi")
@@ -106,7 +106,7 @@ def test_prompt_file_replaces_the_built_in_prompt(
     ]
 
 
-def test_unknown_model_defaults_to_system_placement(app_dir: Path):
+def test_unknown_model_defaults_to_the_system_role(app_dir: Path):
     (app_dir / "prompt.txt").write_text("Translate to French.")
     assert [m["role"] for m in build_messages("some/other-model", "prompt.txt", "")("hi")] == [
         "system",
@@ -114,15 +114,15 @@ def test_unknown_model_defaults_to_system_placement(app_dir: Path):
     ]
 
 
-def test_prompt_file_is_used_with_the_built_in_placement(app_dir: Path):
+def test_prompt_file_is_used_with_the_built_in_role(app_dir: Path):
     (app_dir / "prompt.txt").write_text("Fix it.\n")
     assert build_messages(REFYNE, "prompt.txt", "")("hi") == [
         {"role": "user", "content": "Fix it.\n\nhi"}
     ]
 
 
-def test_bad_placement_fails_at_load():
-    with pytest.raises(ValueError, match='cleanup.placement must be "system" or "user"'):
+def test_bad_prompt_role_fails_at_load():
+    with pytest.raises(ValueError, match='cleanup.prompt_role must be "system" or "user"'):
         build_messages(UTTER, "", "assistant")
 
 

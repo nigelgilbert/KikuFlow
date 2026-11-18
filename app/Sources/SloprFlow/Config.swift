@@ -17,7 +17,7 @@ enum Config {
         model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
         # or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
         # prompt_file = ""      # a text file whose contents replace the model's built-in prompt
-        # placement = ""        # "system" or "user"; empty means the model's built-in placement
+        # prompt_role = ""      # "system" or "user": the chat role the prompt is sent as; rarely needed
         # safety_check = true   # false keeps whatever the model returns
 
         [server]
