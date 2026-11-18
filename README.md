@@ -67,9 +67,10 @@ key = "right_option"   # hold to talk; or "fn", "left_option", "left_command",
 # "right_command", "left_control", "right_control"
 ```
 
-Quit and reopen the app after editing it. The menu's first line names the key in use; a name
-that isn't in the list falls back to Right Option. With `key = "fn"`, set System Settings ›
-Keyboard › "Press 🌐 key to" to "Do Nothing", or macOS also runs that action when you let go.
+Quit and reopen the app after editing it. A config the app can't read shows its error in the
+menu. The menu's first line names the key in use; a name that isn't in the list falls back to
+Right Option. With `key = "fn"`, set System Settings › Keyboard › "Press 🌐 key to" to "Do
+Nothing", or macOS also runs that action when you let go.
 
 ### Your own cleanup prompt or model
 

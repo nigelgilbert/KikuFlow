@@ -20,8 +20,21 @@ child process, passing the port as the only argument:
 "$HOME/Library/Application Support/SloprFlow/venv/bin/slopr-sidecar" 48123
 ```
 
-The config is read only by the model loader, so a broken config shows up as a `/health` error
-instead of a crash. The process stays in the foreground, logs to stderr, and exits by itself
+The app first runs `slopr-config`, which prints the config as one line of JSON, and passes its
+`port` to `slopr-sidecar`:
+
+```sh
+$ "$HOME/Library/Application Support/SloprFlow/venv/bin/slopr-config"
+{"stt_engine": "parakeet", "stt_model": "mlx-community/parakeet-tdt-0.6b-v3", …, "port": 48123, "hotkey_key": "right_option"}
+```
+
+On a config it can't read (not valid TOML, or a value of the wrong type) it exits non-zero with
+a traceback on stderr whose last line is the error, such as
+`TypeError: config port must be int, got '9000'`. The app shows that line and does not start
+the sidecar.
+
+In `slopr-sidecar` the config is read only by the model loader, so a broken config shows up as a
+`/health` error instead of a crash. The process stays in the foreground, logs to stderr, and exits by itself
 within a second if its parent process dies. Kill it to stop it.
 
 ## Endpoints
@@ -102,9 +115,17 @@ model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
 prompt_file = ""      # a text file whose contents replace the model's built-in prompt
 prompt_role = ""      # "system" or "user": the chat role the prompt is sent as; rarely needed
 safety_check = true   # false keeps whatever the model returns
+
+[server]
+port = 48123
+
+[hotkey]
+key = "right_option"
 ```
 
-The app reads `[server] port` and `[hotkey] key` from the same file; the sidecar ignores them.
+`slopr-config` prints `[server] port` and `[hotkey] key` for the app; the sidecar itself ignores
+them and takes the port as its argument. `key` is not checked here; the app falls back to Right
+Option for a name it doesn't know.
 
 `prompt_file`: `~` expanded, relative to `~/Library/Application Support/SloprFlow/`, read at
 model load; missing or empty is a load error naming the path.
