@@ -68,3 +68,9 @@ Pass base `b671864`. The implementer folded in both nits with no pushback.
 
 From `sidecar/`: `uv run pytest -q && uv run ruff check . && uv run pyright`: 97 passed, ruff
 clean, pyright 0 errors. `app/test.sh` was not run because nothing under `app/` changed.
+
+## After the run
+
+At the owner's request, `after_reply` now stops when `on_sent` returns whitespace-only text, so
+neither the log nor `on_done` sees it. The open item above on `on_done` is closed. Tests: 98
+passed.

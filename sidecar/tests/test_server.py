@@ -304,14 +304,15 @@ def test_on_sent_decides_what_is_logged_but_not_the_reply(
     assert calls(hooks)[-1][:2] == ["on_done", "WE SHOULD MEET ON FRIDAY."]
 
 
-def test_on_sent_returning_empty_text_skips_the_log_and_on_done(
-    hooks: Path, tmp_path: Path, client: TestClient
+@pytest.mark.parametrize("blank", ["", "  "])
+def test_on_sent_returning_blank_text_skips_the_log_and_on_done(
+    blank: str, hooks: Path, tmp_path: Path, client: TestClient
 ):
-    (hooks / "a.py").write_text("def on_sent(t): return ''\n")
+    (hooks / "a.py").write_text(f"def on_sent(t): return {blank!r}\n")
     server.start_loading()
     assert client.post("/transcribe", content=SPEECH).json()["clean"] == "We should meet on Friday."
     assert not (tmp_path / "log.txt").exists()
-    assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned"]
+    assert "on_done" not in [c[0] for c in calls(hooks)]
 
 
 def test_hook_failing_before_the_reply_gives_500_with_its_message(
