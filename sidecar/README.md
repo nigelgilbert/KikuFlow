@@ -81,6 +81,7 @@ the message, `""` means none, and one that raises is skipped and recorded under 
 message. The message goes into `~/Library/Application Support/KikuFlow/errors.txt`, the last 50,
 newest first, with the time in front, and the traceback to stderr, which the app writes to
 `sidecar.log` beside it, fresh on each app launch. A failure after the response goes nowhere else.
+A model-load failure skips `on_error` and always goes into errors.txt.
 
 Errors: `400` malformed audio; `500` a failure before the response, with the message as
 `detail` (`""` when `on_error` returned `""`); `503` models not loaded (`detail` holds the
