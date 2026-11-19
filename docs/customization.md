@@ -25,7 +25,7 @@ key = "right_option" # the key you hold to talk
 engine = "parakeet" # or "whisper"
 
 [cleanup]
-model = "ReFyneLabs/simplewords-dictation-cleanup-v3"   # tidies what you said
+model = "ReFyneLabs/simplewords-dictation-cleanup-v3" # or "mlx-community/Qwen3-4B-Instruct-2507-4bit"
 
 [hud]
 renderer = "" # your custom HUD
