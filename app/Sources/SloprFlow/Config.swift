@@ -54,8 +54,7 @@ enum Config {
     private static func value(_ key: String, section: String, in toml: String) -> String? {
         var current = ""
         for line in toml.split(whereSeparator: \.isNewline) {
-            let line = line.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)[0]
-                .trimmingCharacters(in: .whitespaces)
+            let line = uncommented(line).trimmingCharacters(in: .whitespaces)
             if line.hasPrefix("[") {
                 current = line
             } else if current == "[\(section)]" {
@@ -68,6 +67,22 @@ enum Config {
             }
         }
         return nil
+    }
+
+    /// `line` up to its `#` comment; a `#` inside quotes is part of the value.
+    private static func uncommented(_ line: Substring) -> Substring {
+        var quote: Character?
+        for i in line.indices {
+            let c = line[i]
+            if c == quote {
+                quote = nil
+            } else if quote == nil, c == "\"" || c == "'" {
+                quote = c
+            } else if quote == nil, c == "#" {
+                return line[..<i]
+            }
+        }
+        return line
     }
 
     @MainActor static func open() { open(file, creatingWith: defaults) }

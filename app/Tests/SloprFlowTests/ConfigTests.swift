@@ -24,6 +24,7 @@ import Testing
 @Test func rendererReadsHUDSection() {
     #expect(Config.renderer(in: "[hud]\nrenderer = \"python3 hud.py\"\n") == "python3 hud.py")
     #expect(Config.renderer(in: "[hud]\nrenderer = \"say 'done'\"\n") == "say 'done'")
+    #expect(Config.renderer(in: "[hud]\nrenderer = \"hud --color '#fff'\"  # mine\n") == "hud --color '#fff'")
 }
 
 @Test func rendererIsNilWhenMissingOrEmpty() {
