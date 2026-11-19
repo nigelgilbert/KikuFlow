@@ -27,6 +27,7 @@ from .lifecycle import (
     labelled,
     load_hooks,
     report,
+    write_error,
     write_log,
 )
 from .stt import SAMPLE_RATE, Transcriber, decode_audio, load_transcriber
@@ -69,6 +70,7 @@ def load_models() -> None:
         # Only a hook file's failure carries a label.
         error = default_message(e) if hooks is None else f"{type(e).__name__}: {e}"
         state.models, state.error = None, error
+        write_error(error)
         return
     state.models, state.error = Models(config, transcribe, clean, hooks), None
 

@@ -1,4 +1,5 @@
 import asyncio
+import re
 import threading
 from collections.abc import Iterator
 from pathlib import Path
@@ -110,7 +111,9 @@ def wait_for_load() -> None:
     server.executor.submit(lambda: None).result()
 
 
-def test_health_answers_while_loading_then_reports_models(fakes: Fakes, client: TestClient):
+def test_health_answers_while_loading_then_reports_models(
+    fakes: Fakes, tmp_path: Path, client: TestClient
+):
     fakes.loaded.clear()
     server.start_loading()
     assert client.get("/health").json()["ready"] is False
@@ -123,6 +126,7 @@ def test_health_answers_while_loading_then_reports_models(fakes: Fakes, client: 
         "stt_model": "mlx-community/parakeet-tdt-0.6b-v3",
         "cleanup_model": "ReFyneLabs/simplewords-dictation-cleanup-v3",
     }
+    assert errors(tmp_path) == []
 
 
 def test_transcribe_with_cleanup(client: TestClient):
@@ -154,7 +158,7 @@ def test_bad_audio_is_rejected_with_a_detail(client: TestClient):
     assert (response.status_code, response.json()) == (400, {"detail": "EOFError"})
 
 
-def test_load_failure_is_reported(fakes: Fakes):
+def test_load_failure_is_reported(fakes: Fakes, tmp_path: Path):
     fakes.config = Config(stt_engine="vosk")
     with TestClient(server.app) as client:
         wait_for_load()
@@ -162,6 +166,8 @@ def test_load_failure_is_reported(fakes: Fakes):
         assert health["ready"] is False
         assert health["error"] == "ValueError: unknown stt.engine 'vosk'"
         assert client.post("/transcribe", content=SPEECH).status_code == 503
+    [entry] = (tmp_path / "errors.txt").read_text().split("\n\n")
+    assert re.fullmatch(r"\d{4}-\d\d-\d\d \d\d:\d\d ValueError: unknown stt.engine 'vosk'", entry)
 
 
 def test_missing_prompt_file_is_reported(
@@ -241,7 +247,7 @@ def test_hook_file_failing_to_import_fails_the_load_before_the_models(
     assert health["ready"] is False
     assert health["error"] == "hook file broken.py: RuntimeError: broken hook file"
     assert (fakes.transcriber_loads, fakes.cleaner_loads) == (0, 0)
-    assert errors(tmp_path) == []
+    assert errors(tmp_path) == [health["error"]]
 
 
 def test_reply_is_sent_before_on_sent(hooks: Path, client: TestClient):
@@ -439,7 +445,7 @@ def test_503_while_models_are_not_loaded_is_left_alone(fakes: Fakes, hooks: Path
         503,
         {"detail": "ValueError: unknown stt.engine 'vosk'"},
     )
-    assert errors(tmp_path) == []
+    assert errors(tmp_path) == ["ValueError: unknown stt.engine 'vosk'"]  # the load's only
 
 
 def test_on_error_can_keep_a_failure_after_the_reply_out_of_errors_txt(
