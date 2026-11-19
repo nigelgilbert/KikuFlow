@@ -137,7 +137,7 @@ def process(m: Models, audio: np.ndarray) -> dict:
 def after_reply(hooks: Hooks, text: str) -> None:
     try:
         text = fire(hooks, "on_sent", text)
-        if not text:
+        if not text.strip():
             return
         with labelled("log write"):
             write_log(text)

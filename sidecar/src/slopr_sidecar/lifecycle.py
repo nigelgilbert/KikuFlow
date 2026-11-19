@@ -103,19 +103,21 @@ def report(hooks: Hooks, e: Exception) -> str:
     return message
 
 
-def append(path: Path, text: str, keep: int) -> None:
-    """Append `text` to the file at `path` as one line, keeping the last `keep`."""
+def prepend(path: Path, text: str, keep: int) -> None:
+    """Put `text` first in the file at `path` as one line, keeping the newest `keep`."""
+    if not (text := fold(text)):
+        return
     old = path.read_text("utf-8").strip().split("\n\n") if path.exists() else []
-    path.write_text("\n\n".join([*filter(None, old), fold(text)][-keep:]), "utf-8")
+    path.write_text("\n\n".join([text, *filter(None, old)][:keep]), "utf-8")
 
 
 def write_log(text: str) -> None:
-    append(LOG, text, 100)
+    prepend(LOG, text, 100)
 
 
 def write_error(message: str) -> None:
     """Add `message` to errors.txt with the time in front; a failed write only goes to stderr."""
     try:
-        append(ERRORS, f"{datetime.now():%Y-%m-%d %H:%M} {message}", 50)
+        prepend(ERRORS, f"{datetime.now():%Y-%m-%d %H:%M} {message}", 50)
     except Exception:
         log.exception("errors.txt write failed")
