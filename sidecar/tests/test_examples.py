@@ -5,12 +5,12 @@ import pytest
 
 from kiku_sidecar.lifecycle import load_hooks
 
-README = Path(__file__).parents[2] / "examples/README.md"
+README = Path(__file__).parents[2] / "docs/hooks.md"
 BLOCKS = re.findall(r"```python\n(.*?)```", README.read_text(), re.DOTALL)
 
 
 def test_readme_has_examples():
-    assert len(BLOCKS) == 9
+    assert len(BLOCKS) == 10
 
 
 @pytest.mark.parametrize("source", BLOCKS)

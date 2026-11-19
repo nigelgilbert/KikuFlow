@@ -69,7 +69,7 @@ by the sidecar itself: the last 100 texts in `~/Library/Application Support/Kiku
 newest first, one line each. Hook files are the `*.py` files in
 `~/Library/Application Support/KikuFlow/hooks/`, which `app/bundle.sh` links to `hooks/` in the
 repo. They load before the models, and one that fails to import fails the load.
-Examples: `examples/README.md`.
+Examples: `docs/hooks.md`.
 
 An exception from speech recognition, the cleanup model, a hook or the log write is not caught and
 carried on: nothing after it runs. The sidecar adds a note to it naming where it came from (`speech
