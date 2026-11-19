@@ -42,6 +42,7 @@ enum HUDState: Equatable {
 
     func stop() {
         try? input?.close()
+        process?.terminate()  // for a program that doesn't end when its input closes
         input = nil
         process = nil
     }
