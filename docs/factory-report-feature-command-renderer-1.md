@@ -127,3 +127,24 @@ At `b3dd90a`:
 - `app/test.sh`: 14 tests passed
 - `swift build`: both executables build
 - The sidecar is unchanged.
+
+## After the run
+
+A second review of the branch gave six items. The lead took five and the user agreed.
+
+| Item | Commit | Result |
+|---|---|---|
+| A `#` inside a quoted value cuts the command short | `be69dca` | The reader cuts a comment only at a `#` outside quotes. `"hud --color '#fff'"  # mine` is tested. This closes the open item above. |
+| `Renderer.stop()` never ends the program | `1bc6c60` | `stop()` terminates the program after closing its input. There is no wait and no force kill. |
+| `SloprHUD` is started again on every state when it will not start | `e7283c5` | The app waits a second between attempts. |
+| `[weak self]` on the inner closure | `50eed2d` | The capture moved to the outer closure. `Sidecar.swift` has the same pattern and was left alone. |
+| The README says "after changing the key" | `cd83c21` | It names `renderer`. |
+
+Rejected: showing the fallback warning only when nothing is in progress, so that it cannot hide
+the spinner. Thinking is usually shorter than the warning's 1.5 s, and a renderer mostly dies
+while it is being sent states, so the change would drop the message that says why the user's
+renderer is not in use.
+
+A gap found while checking that item, left open: when the user's renderer dies while the key is
+held, the next level update replaces the warning within milliseconds, so the built-in pill
+appears without the text.
