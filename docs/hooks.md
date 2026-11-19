@@ -57,7 +57,7 @@ A file that fails to import stops the app from loading. You get the warning tria
 
 ## Performance Considerations
 
-`on_transcribed` and `on_cleaned` run before the paste, so you wait for them. `on_sent` and `on_done` run after it. They can't slow the paste down, but the next dictation waits until they finish.
+`on_transcribed` and `on_cleaned` run before the paste, so they slow down the transcription result. `on_sent` and `on_done` run after it. They can't slow the paste down, but the next dictation waits until they finish.
 
 ## Recipes
 
