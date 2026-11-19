@@ -5,6 +5,7 @@ enum Config {
     static let file = dir.appending(path: "config.toml")
     static let log = dir.appending(path: "log.txt")
     static let errors = dir.appending(path: "errors.txt")
+    static let sidecarLog = dir.appending(path: "sidecar.log")
 
     static let defaults = """
         [stt]

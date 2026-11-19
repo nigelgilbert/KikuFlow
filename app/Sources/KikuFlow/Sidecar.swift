@@ -67,6 +67,9 @@ import Foundation
         let process = Process()
         process.executableURL = Config.dir.appending(path: "venv/bin/kiku-sidecar")
         process.arguments = [String(port)]
+        // Its tracebacks are lost when launched from Finder. Truncated each launch; inherited if it can't open.
+        if FileManager.default.createFile(atPath: Config.sidecarLog.path, contents: nil),
+           let log = try? FileHandle(forWritingTo: Config.sidecarLog) { process.standardError = log }
         process.terminationHandler = { _ in Task { @MainActor [weak self] in self?.exited() } }
         do { try process.run() } catch { status = .failed(error.localizedDescription); return }
         self.process = process

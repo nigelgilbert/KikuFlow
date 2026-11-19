@@ -109,6 +109,8 @@ your last 100 dictations, newest first, one line each. The app always keeps it; 
 with the time in front, such as `2026-11-18 14:02 on_cleaned in voice.py:3: KeyError: 'x'`. A
 failure before the text is pasted also shows in the HUD, and nothing is pasted. The app always
 keeps it; an `on_error` hook (below) can change what an entry says or keep a failure out.
+The speech engine's own output from its latest launch, tracebacks included, is in `sidecar.log`
+beside it.
 
 ## Lifecycle hooks
 
