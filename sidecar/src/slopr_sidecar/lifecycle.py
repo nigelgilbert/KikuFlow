@@ -104,7 +104,7 @@ def report(hooks: Hooks, e: Exception) -> str:
 
 
 def prepend(path: Path, text: str, keep: int) -> None:
-    """Put `text` first in the file at `path` as one line, keeping the first `keep`."""
+    """Put `text` first in the file at `path` as one line, keeping the newest `keep`."""
     if not (text := fold(text)):
         return
     old = path.read_text("utf-8").strip().split("\n\n") if path.exists() else []
