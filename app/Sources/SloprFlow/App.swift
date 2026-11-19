@@ -61,7 +61,7 @@ enum Status: Equatable {
             microphoneItem,
             .separator(),
             NSMenuItem(title: "Open Log", action: #selector(openLog), keyEquivalent: "l"),
-            NSMenuItem(title: "Open Errors", action: #selector(openErrors), keyEquivalent: ""),
+            NSMenuItem(title: "Open Errors", action: #selector(openErrors), keyEquivalent: "e"),
             NSMenuItem(title: "Open Config", action: #selector(openConfig), keyEquivalent: ","),
             .separator(),
             NSMenuItem(title: "Restart Slopr Flow", action: #selector(restart), keyEquivalent: "r"),
