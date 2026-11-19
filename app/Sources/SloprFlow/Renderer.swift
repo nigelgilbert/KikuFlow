@@ -29,6 +29,7 @@ enum HUDState: Equatable {
     private var command = Config.renderer  // nil once it has stopped: it is not tried again until a restart
     private var process: Process?
     private var input: FileHandle?
+    private var launched = Date.distantPast
 
     func start() {
         signal(SIGPIPE, SIG_IGN)  // so writing to a program that has gone fails instead of killing the app
@@ -36,7 +37,8 @@ enum HUDState: Equatable {
     }
 
     func render(_ state: HUDState) {
-        if command == nil, process?.isRunning != true { launch() }
+        // A SloprHUD that won't start is tried once a second, not on every level.
+        if command == nil, process?.isRunning != true, Date.now.timeIntervalSince(launched) > 1 { launch() }
         write(state.line)
     }
 
@@ -48,6 +50,7 @@ enum HUDState: Equatable {
     }
 
     private func launch() {
+        launched = .now
         let process = Process()
         if let command {
             process.executableURL = URL(filePath: "/bin/sh")
