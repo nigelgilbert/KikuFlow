@@ -5,8 +5,9 @@ text, and what it returns becomes the text.
 
 ```mermaid
 flowchart LR
-    mic([mic]) --> stt[transcribe] --> t{{on_transcribed}} --> clean[cleanup model]
-    clean --> c{{on_cleaned}} --> paste[paste] --> s{{on_sent}} --> log[log] --> d{{on_done}}
+    mic(mic) --> stt(transcribe) --> t(on_transcribed):::hook --> clean(cleanup model)
+    clean --> c(on_cleaned):::hook --> paste(paste) --> s(on_sent):::hook --> log(log) --> d(on_done):::hook
+    classDef hook stroke-dasharray: 4 3
 ```
 
 ## Your first hook
