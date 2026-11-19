@@ -64,7 +64,7 @@ enum Status: Equatable {
             NSMenuItem(title: "Open Errors", action: #selector(openErrors), keyEquivalent: "e"),
             NSMenuItem(title: "Open Config", action: #selector(openConfig), keyEquivalent: ","),
             .separator(),
-            NSMenuItem(title: "Restart Slopr Flow", action: #selector(restart), keyEquivalent: "r"),
+            NSMenuItem(title: "Reload Slopr Flow", action: #selector(reload), keyEquivalent: "r"),
             NSMenuItem(title: "Quit Slopr Flow", action: #selector(NSApplication.terminate), keyEquivalent: "q"),
         ]
         item.menu = menu
@@ -180,14 +180,14 @@ enum Status: Equatable {
     @objc private func openErrors() { Config.openErrors() }
 
     /// Reopens the app only once this process has gone, so the new one finds the port free.
-    @objc private func restart() {
+    @objc private func reload() {
         let relaunch = Process()
         relaunch.executableURL = URL(filePath: "/bin/sh")
         relaunch.arguments = [
             "-c", "while kill -0 \"$1\" 2>/dev/null; do sleep 0.1; done; open \"$0\"",
             Bundle.main.bundlePath, String(ProcessInfo.processInfo.processIdentifier),
         ]
-        do { try relaunch.run() } catch { return render(.warning("Couldn't restart: \(error.localizedDescription)")) }
+        do { try relaunch.run() } catch { return render(.warning("Couldn't reload: \(error.localizedDescription)")) }
         NSApp.terminate(nil)
     }
 }
