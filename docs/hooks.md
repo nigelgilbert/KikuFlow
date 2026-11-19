@@ -3,8 +3,31 @@
 A hook is a Python function that Kiku Flow calls at a fixed point in a dictation. It gets the
 text, and what it returns becomes the text.
 
-```
-mic → transcribe → [on_transcribed] → cleanup model → [on_cleaned] → paste → [on_sent] → log → [on_done]
+```mermaid
+flowchart TD
+    mic([You let go of the key]) --> stt[Speech recognition]
+    stt --> t{{on_transcribed}}
+    t --> clean[Cleanup model]
+    clean --> c{{on_cleaned}}
+    c --> paste[/Paste/]
+    paste --> s{{on_sent}}
+    s --> log[Log entry]
+    log --> d{{on_done}}
+
+    subgraph before [You wait for these]
+        stt
+        t
+        clean
+        c
+    end
+    subgraph after [The next dictation waits for these]
+        s
+        log
+        d
+    end
+
+    before -. failure .-> e{{on_error}}
+    after -. failure .-> e
 ```
 
 ## Your first hook
