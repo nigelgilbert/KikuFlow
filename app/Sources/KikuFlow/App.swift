@@ -46,7 +46,7 @@ enum Status: Equatable {
     private let hud = Renderer()
     private var hide: Task<Void, Never>?
     private let (key, keyWarning) = Config.hotkey
-    private lazy var hotkey = Hotkey(key: key[0]) { [weak self] down in self?.hotkeyChanged(down: down) }
+    private lazy var hotkey = Hotkey(keys: key) { [weak self] down in self?.hotkeyChanged(down: down) }
     private var activity: Status? { didSet { refresh() } }
     private var status: Status { activity ?? sidecar.status }
 

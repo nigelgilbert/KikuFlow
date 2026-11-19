@@ -24,13 +24,18 @@ import IOKit.hidsystem
         ]
     }
 
-    private let key: Key
+    private let modifiers: [Key]
+    private let normal: Key?
     private let onChange: (_ down: Bool) -> Void
     private var tap: CFMachPort?
+    private var flags: UInt64 = 0
+    private var normalHeld = false
+    private var captured = false  // the normal key went down with the modifiers held and hasn't come up
     private var down = false
 
-    init(key: Key, onChange: @escaping (_ down: Bool) -> Void) {
-        self.key = key
+    init(keys: [Key], onChange: @escaping (_ down: Bool) -> Void) {
+        modifiers = keys.filter(\.isModifier)
+        normal = keys.first { !$0.isModifier }
         self.onChange = onChange
     }
 
@@ -40,12 +45,14 @@ import IOKit.hidsystem
         // Input Monitoring as well.
         let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
-            eventsOfInterest: 1 << CGEventType.flagsChanged.rawValue,
+            // Key events only for a normal key, so a modifier-only hotkey keeps ordinary typing out of the tap.
+            eventsOfInterest: 1 << CGEventType.flagsChanged.rawValue
+                | (normal == nil ? 0 : 1 << CGEventType.keyDown.rawValue | 1 << CGEventType.keyUp.rawValue),
             callback: { _, type, event, hotkey in
-                MainActor.assumeIsolated {  // the tap's run loop source is on the main run loop
+                let swallow = MainActor.assumeIsolated {  // the tap's run loop source is on the main run loop
                     Unmanaged<Hotkey>.fromOpaque(hotkey!).takeUnretainedValue().handle(type, event)
                 }
-                return Unmanaged.passUnretained(event)
+                return swallow ? nil : Unmanaged.passUnretained(event)
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque())
         // Without access macOS can hand back a tap that is disabled for good; drop it and retry later.
@@ -58,22 +65,37 @@ import IOKit.hidsystem
         return true
     }
 
-    private func handle(_ type: CGEventType, _ event: CGEvent) {
+    private func handle(_ type: CGEventType, _ event: CGEvent) -> Bool {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
-            let held = CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(key.code))
-            update(keyCode: Int64(key.code), flags: held ? UInt64(key.mask) : 0)
-            return
+            let held = { (key: Key) in CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(key.code)) }
+            update(.flagsChanged, keyCode: 0, flags: modifiers.filter(held).reduce(0) { $0 | UInt64($1.mask) })
+            // A key-up missed while disabled would leave the normal key captured, and swallowed for good.
+            if let normal, normalHeld, !held(normal) { update(.keyUp, keyCode: Int64(normal.code), flags: 0) }
+            return false
         }
-        update(keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags.rawValue)
+        return update(type, keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags.rawValue)
     }
 
-    func update(keyCode: Int64, flags: UInt64) {
-        guard keyCode == key.code else { return }
-        let isDown = flags & UInt64(key.mask) != 0
-        guard isDown != down else { return }
-        down = isDown
-        onChange(isDown)
+    /// Returns whether the event is to be swallowed.
+    @discardableResult func update(_ type: CGEventType, keyCode: Int64, flags: UInt64) -> Bool {
+        // Modifiers come from flagsChanged only: arrow and function keys set Fn on their own key events.
+        if type == .flagsChanged { self.flags = flags }
+        let held = modifiers.allSatisfy { self.flags & UInt64($0.mask) != 0 }
+        let isNormal = Int(keyCode) == normal?.code
+        // Only a first key-down captures, not a repeat once the modifiers have come down.
+        let press = isNormal && type == .keyDown && !normalHeld && held
+        if isNormal { normalHeld = type == .keyDown }
+        if press { captured = true }
+        let swallow = isNormal && captured
+        if isNormal && type == .keyUp { captured = false }
+        // The combo goes down only on the press that captures, so pressing a modifier again later doesn't restart it.
+        let isDown = held && (normal == nil || captured && (down || press))
+        if isDown != down {
+            down = isDown
+            onChange(isDown)
+        }
+        return swallow
     }
 }
 
