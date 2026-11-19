@@ -79,8 +79,9 @@ neither a string nor `None` raises `TypeError: on_cleaned returned dict, not str
 `on_error(e)` hooks get the exception, in filename order; the first that returns a string decides
 the message, `""` means none, and one that raises is skipped and recorded under its own default
 message. The message goes into `~/Library/Application Support/KikuFlow/errors.txt`, the last 50,
-newest first, with the time in front, and the traceback to stderr, which the app writes to
-`sidecar.log` beside it, fresh on each app launch. A failure after the response goes nowhere else.
+newest first, with the time in front, and the traceback to stderr. The app keeps stderr in
+`sidecar.log` beside it and empties that file when it starts. A failure after the response goes
+nowhere else.
 A model-load failure skips `on_error` and always goes into errors.txt.
 
 Errors: `400` malformed audio; `500` a failure before the response, with the message as

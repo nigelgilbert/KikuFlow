@@ -70,7 +70,7 @@ import Foundation
         let process = Process()
         process.executableURL = Config.dir.appending(path: "venv/bin/kiku-sidecar")
         process.arguments = [String(port)]
-        // Its tracebacks are lost when launched from Finder; inherited if the log can't be opened.
+        // Stderr stays inherited if the log can't be opened.
         if let log = try? FileHandle(forWritingTo: Config.sidecarLog), (try? log.seekToEnd()) != nil {
             process.standardError = log
         }
