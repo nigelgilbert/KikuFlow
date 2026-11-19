@@ -22,7 +22,7 @@ Every dictation takes the same short trip, and the stops in brackets are yours:
 mic → transcribe → [on_transcribed] → cleanup → [on_cleaned] → paste → [on_sent] → log → [on_done]
 ```
 
-A hook is a Python function in a file in `hooks/`. It gets the text and returns the text. This one makes every dictation read like a chat message, with no capital at the start and no full stop at the end:
+A hook is a Python function in a file in `hooks/`. It gets the text and returns the text. This one makes every dictation read like a text message, with no capital at the start and no full stop at the end:
 
 ```python
 def on_cleaned(t):
