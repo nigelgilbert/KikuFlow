@@ -65,10 +65,10 @@ the cleanup stage (`clean` is its result), then, once the response has been sent
 gets its result), the log and `on_done`. Those three do not delay the reply, but they run on the
 model thread, so a slow hook holds up the next dictation. `raw` is always the speech recognition
 output. Once the text is empty, nothing further runs, the log included. The log is always written,
-by the sidecar itself: the last 100 texts in `~/Library/Application Support/SloprFlow/log.txt`, one
-line each. Hook files are the `*.py` files in `~/Library/Application Support/SloprFlow/hooks/`,
-which `app/bundle.sh` links to `hooks/` in the repo. They load before the models, and one that
-fails to import fails the load.
+by the sidecar itself: the last 100 texts in `~/Library/Application Support/SloprFlow/log.txt`,
+newest first, one line each. Hook files are the `*.py` files in
+`~/Library/Application Support/SloprFlow/hooks/`, which `app/bundle.sh` links to `hooks/` in the
+repo. They load before the models, and one that fails to import fails the load.
 Examples: `examples/README.md`.
 
 An exception from speech recognition, the cleanup model, a hook or the log write is not caught and
@@ -78,8 +78,9 @@ default message is `on_cleaned in voice.py:3: KeyError: 'x'`, on one line. A hoo
 neither a string nor `None` raises `TypeError: on_cleaned returned dict, not str or None`.
 `on_error(e)` hooks get the exception, in filename order; the first that returns a string decides
 the message, `""` means none, and one that raises is skipped and recorded under its own default
-message. The message goes into `~/Library/Application Support/SloprFlow/errors.txt`, the last 50
-with the time in front, and the traceback to stderr. A failure after the response goes nowhere else.
+message. The message goes into `~/Library/Application Support/SloprFlow/errors.txt`, the last 50,
+newest first, with the time in front, and the traceback to stderr. A failure after the response goes
+nowhere else.
 
 Errors: `400` malformed audio; `500` a failure before the response, with the message as
 `detail` (`""` when `on_error` returned `""`); `503` models not loaded (`detail` holds the
