@@ -12,13 +12,33 @@ import Testing
 }
 
 @Test func hotkeyReadsHotkeySection() {
-    #expect(Config.hotkey(in: Config.defaults) == .rightOption)
-    #expect(Config.hotkey(in: "[hotkey]\nkey = \"fn\"  # globe\n").title == "Fn")
+    #expect(Config.hotkey(in: Config.defaults).keys == [.rightOption])
+    #expect(Config.hotkey(in: "[hotkey]\nkey = \"fn\"  # globe\n").keys.title == "Fn")
 }
 
-@Test func hotkeyDefaultsWhenMissingOrUnknown() {
-    #expect(Config.hotkey(in: "") == .rightOption)
-    #expect(Config.hotkey(in: "[hotkey]\nkey = \"caps_lock\"\n") == .rightOption)
+@Test func hotkeyReadsCombos() throws {
+    let named = Hotkey.Key.named
+    let option = try #require(named["right_option"])
+    for (value, keys) in [
+        "right_option": [option],
+        "right_option+right_command": [option, try #require(named["right_command"])],
+        "right_option+space": [option, try #require(named["space"])],
+        "right_option + space": [option, try #require(named["space"])],
+    ] {
+        let hotkey = Config.hotkey(in: "[hotkey]\nkey = \"\(value)\"\n")
+        #expect(hotkey.keys == keys && hotkey.warning == nil, "\(value)")
+    }
+    #expect(Config.hotkey(in: "[hotkey]\nkey = \"right_option+space\"\n").keys.title == "Right Option + Space")
+}
+
+@Test func hotkeyDefaultsWhenMissingOrInvalid() {
+    let missing = Config.hotkey(in: "")
+    #expect(missing.keys == [.rightOption] && missing.warning == nil)
+    for value in ["caps_lock", "right_option+caps_lock", "space", "right_option+space+space", "", "right_option+"] {
+        let hotkey = Config.hotkey(in: "[hotkey]\nkey = \"\(value)\"\n")
+        #expect(hotkey.keys == [.rightOption], "\(value)")
+        #expect(hotkey.warning == "Unknown hotkey \"\(value)\". Using Right Option.")
+    }
 }
 
 @Test func rendererReadsHUDSection() {

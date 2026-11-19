@@ -6,7 +6,9 @@ import IOKit.hidsystem
     struct Key: Equatable {
         let title: String
         let code: Int
-        let mask: Int32
+        let mask: Int32  // 0 for a normal key
+
+        var isModifier: Bool { mask != 0 }
 
         static let rightOption = Key(title: "Right Option", code: kVK_RightOption, mask: NX_DEVICERALTKEYMASK)
 
@@ -18,6 +20,7 @@ import IOKit.hidsystem
             "right_command": Key(title: "Right Command", code: kVK_RightCommand, mask: NX_DEVICERCMDKEYMASK),
             "left_control": Key(title: "Left Control", code: kVK_Control, mask: NX_DEVICELCTLKEYMASK),
             "right_control": Key(title: "Right Control", code: kVK_RightControl, mask: NX_DEVICERCTLKEYMASK),
+            "space": Key(title: "Space", code: kVK_Space, mask: 0),
         ]
     }
 
@@ -72,4 +75,8 @@ import IOKit.hidsystem
         down = isDown
         onChange(isDown)
     }
+}
+
+extension [Hotkey.Key] {
+    var title: String { map(\.title).joined(separator: " + ") }
 }

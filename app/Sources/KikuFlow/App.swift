@@ -45,8 +45,8 @@ enum Status: Equatable {
     private let recorder = Recorder()
     private let hud = Renderer()
     private var hide: Task<Void, Never>?
-    private let key = Config.hotkey
-    private lazy var hotkey = Hotkey(key: key) { [weak self] down in self?.hotkeyChanged(down: down) }
+    private let (key, keyWarning) = Config.hotkey
+    private lazy var hotkey = Hotkey(key: key[0]) { [weak self] down in self?.hotkeyChanged(down: down) }
     private var activity: Status? { didSet { refresh() } }
     private var status: Status { activity ?? sidecar.status }
 
@@ -71,6 +71,7 @@ enum Status: Equatable {
         refresh()
         hud.onStop = { [weak self] in self?.render(.warning("The HUD renderer stopped")) }
         hud.start()
+        if let keyWarning { render(.warning(keyWarning)) }
         sidecar.onChange = { [weak self] in self?.refresh() }
         sidecar.start()
         AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
@@ -89,13 +90,14 @@ enum Status: Equatable {
 
     private func refresh() {
         item.button?.image = NSImage(systemSymbolName: status.symbol, accessibilityDescription: status.title)
-        // The menu grows to fit its longest title, so a long status is cut short.
+        // The menu grows to fit its longest title, so a long status is cut short; the hotkey is shown whole.
         let line = switch status {
         case .ready: "Hold \(key.title) to talk"
         case .failed: String(status.title.dropFirst("Error: ".count))
         default: status.title
         }
-        statusLine.title = line.count > 30 ? line.prefix(29).trimmingCharacters(in: .whitespaces) + "…" : line
+        let cut = line.count > 30 && status != .ready
+        statusLine.title = cut ? line.prefix(29).trimmingCharacters(in: .whitespaces) + "…" : line
         if case .failed(let error) = status { statusLine.toolTip = error } else { statusLine.toolTip = nil }
         accessibilityItem.isHidden = AXIsProcessTrusted()
         microphoneItem.isHidden = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
