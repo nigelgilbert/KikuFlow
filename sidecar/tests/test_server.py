@@ -93,7 +93,7 @@ def fakes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, hooks: Path) -> Fakes
     """Fake models, and temporary stand-ins for the hook directory, the log and errors.txt."""
     fakes = Fakes()
     monkeypatch.setattr(server, "HOOK_DIR", hooks)
-    monkeypatch.setattr(lifecycle, "LOG", tmp_path / "log.txt")
+    monkeypatch.setattr(lifecycle, "LOG_FILE", tmp_path / "log.txt")
     monkeypatch.setattr(lifecycle, "ERRORS", tmp_path / "errors.txt")
     monkeypatch.setattr(server, "load_config", lambda: fakes.config)
     monkeypatch.setattr(server, "load_transcriber", fakes.load_transcriber)
@@ -293,7 +293,7 @@ def test_on_sent_fires_before_the_log_is_written_and_on_done_after(hooks: Path, 
 def test_failed_log_write_is_recorded_and_stops_on_done(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, hooks: Path, client: TestClient
 ):
-    monkeypatch.setattr(lifecycle, "LOG", tmp_path / "missing/log.txt")
+    monkeypatch.setattr(lifecycle, "LOG_FILE", tmp_path / "missing/log.txt")
     assert client.post("/transcribe", content=SPEECH).status_code == 200
     [entry] = errors(tmp_path)
     assert entry.startswith("log write: FileNotFoundError: ")
