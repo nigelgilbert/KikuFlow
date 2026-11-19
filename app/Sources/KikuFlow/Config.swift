@@ -9,19 +9,19 @@ enum Config {
 
     static let defaults = """
         [hotkey]
-        key = "right_option"   # the key you hold to talk
+        key = "right_option"
 
         [stt]
-        engine = "parakeet"    # or "whisper"
+        engine = "parakeet"
 
         [cleanup]
-        model = "ReFyneLabs/simplewords-dictation-cleanup-v3"   # tidies what you said
+        model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
 
         [hud]
-        renderer = ""          # your own HUD command; empty is the built-in pill
+        renderer = ""
 
         [server]
-        port = 48123           # where the app reaches its speech engine
+        port = 48123
 
         """
 

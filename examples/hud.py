@@ -1,7 +1,4 @@
-"""A Kiku Flow HUD that posts a notification each time you finish talking, and draws nothing.
-
-Copy it beside config.toml and set renderer = "python3 hud.py" under [hud].
-"""
+"""A Kiku Flow HUD that posts a notification each time you finish talking."""
 
 import subprocess
 import sys
