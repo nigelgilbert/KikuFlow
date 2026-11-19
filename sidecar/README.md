@@ -56,9 +56,8 @@ Response:
  "timings": {"stt_ms": 64, "cleanup_ms": 89}}
 ```
 
-`clean` equals `raw` when the cleanup output fails the safety check (or, with
-`safety_check = false`, is empty), or when nothing was said, unless a hook changed it. Audio
-under 0.1 s returns empty strings. Paste `clean`.
+`clean` equals `raw` when the cleanup output is empty or nothing was said, unless a hook changed
+it. Audio under 0.1 s returns empty strings. Paste `clean`.
 
 Four lifecycle hooks take the text as a plain string and return the text for the next phase:
 `on_transcribed` after speech recognition (the cleanup model gets its result), `on_cleaned` after
@@ -101,7 +100,6 @@ model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
 # or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
 prompt_file = ""      # a text file whose contents replace the model's built-in prompt
 prompt_role = ""      # "system" or "user": the chat role the prompt is sent as; rarely needed
-safety_check = true   # false keeps whatever the model returns
 ```
 
 The app reads `[server] port` and `[hotkey] key` from the same file; the sidecar ignores them.
@@ -115,9 +113,7 @@ other value is a load error. Empty means the model's built-in role (ReFyne `user
 (Gemma 2, for one) fails to load with the template's error; set `prompt_role = "user"`. Any mlx-lm
 chat model works with `prompt_file`; an unknown model without it is a load error. The built-in
 models are fine-tunes trained on one exact prompt, so another prompt likely cleans up worse.
-`safety_check = false` uses any non-empty output and raises the generation cap from 2x to 4x the
-input tokens (plus 256), which a prompt that is not a cleanup (translate, summarize, email)
-needs.
+Whatever the model returns is used; generation stops at 4x the input tokens plus 256.
 
 The default cleanup model is a gated Hugging Face repo: it downloads only after the user
 accepts its terms on huggingface.co and logs in (`HF_TOKEN` in the sidecar's environment, or

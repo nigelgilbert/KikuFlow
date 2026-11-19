@@ -17,7 +17,7 @@ import numpy as np
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 
-from .cleanup import Cleaner, accept, load_cleaner
+from .cleanup import Cleaner, load_cleaner
 from .config import Config, load_config
 from .lifecycle import (
     HOOK_DIR,
@@ -120,9 +120,8 @@ def process(m: Models, audio: np.ndarray) -> dict:
     text = fire(m.hooks, "on_transcribed", raw)
     if text:
         with labelled("cleanup model"):
-            candidate = m.clean(text)
-            if accept(text, candidate, m.config.cleanup_safety_check):
-                text = candidate
+            # An empty cleanup keeps the transcript.
+            text = m.clean(text) or text
     text = fire(m.hooks, "on_cleaned", text)
     cleaned = time.perf_counter()
     return {
