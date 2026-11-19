@@ -2,7 +2,9 @@
 
 *Kiku* (聞く): to listen.
 
-Hold a key, talk, let go. Your words land in whatever app you're in.  
+Hold a key, talk, let go. Your words land in whatever app you're in.
+
+It works like a Unix pipe: text in, text out, your Python in the middle.
 
 | You say | It pastes |
 | --- | --- |
