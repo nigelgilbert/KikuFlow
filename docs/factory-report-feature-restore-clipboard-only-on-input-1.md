@@ -45,3 +45,26 @@ None.
 ### Split
 
 None.
+
+## Fix pass 1
+
+Both nits went to the implementer, who folded both in with no pushback, in `03e5646`.
+
+- **Nit 1, AX timeout:** `AXUIElementSetMessagingTimeout(system, 0.25)` before the first query.
+  The implementer noted the hotkey is an active event tap on the main run loop, so a stalled
+  main actor would also hold up keyboard events. The 0.25 s value is not measured.
+- **Nit 2, snapshot:** the focus check runs first and the clipboard is read only when it will be
+  restored.
+
+## Open items
+
+- Not tested by hand in the running app. Nothing in this change can be unit-tested without a UI.
+- Read-only text that reports a selected-text range (web pages, PDF views) counts as a text
+  input, so a dictation there is still lost when the clipboard is restored. Same as before the
+  change. A possible follow-up.
+- `app/.build` is a stale cache from when the repo lived at another path, so `app/test.sh`
+  fails until it is deleted. The run used `--scratch-path` and left the cache alone.
+
+## Tests
+
+`app/test.sh --scratch-path <dir>`: 14 tests passed. `swift build`: no warnings.
