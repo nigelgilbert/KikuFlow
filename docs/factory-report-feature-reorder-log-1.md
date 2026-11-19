@@ -44,3 +44,27 @@ The reviewer found both acceptance criteria met and raised five candidates.
 **Split**: none.
 
 Candidates 5, kept 2, adversary Sol, 1 exchange (on the docstring).
+
+## Fix pass
+
+Pass base `b671864`. The implementer folded in both nits with no pushback.
+
+1. **Whitespace-only text writes a blank top entry.** `445cd70`. `prepend` folds the text first
+   and returns without writing when it is empty; `test_blank_text_writes_nothing` covers it.
+2. **Docstring.** `d1c9aac`. Now reads "keeping the newest `keep`".
+
+## Open items
+
+- A `log.txt` or `errors.txt` written oldest first before this change is not converted. New
+  entries go on top of the old block, and until a cap's worth of new entries is written the cap
+  drops the newest of the old entries first. Deleting the file once avoids it. The READMEs do not
+  mention this.
+- With whitespace-only text from an `on_sent` hook, `on_done` still fires with that text. Behaviour
+  unchanged by this branch.
+- Older plans and reports in `docs/` (`plan-hooks-followup.md`,
+  `factory-report-feature-cleanup-prompts-2.md`) still describe appending; left as history.
+
+## Tests
+
+From `sidecar/`: `uv run pytest -q && uv run ruff check . && uv run pyright`: 97 passed, ruff
+clean, pyright 0 errors. `app/test.sh` was not run because nothing under `app/` changed.
