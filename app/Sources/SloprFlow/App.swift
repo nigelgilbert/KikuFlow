@@ -60,7 +60,7 @@ enum Status: Equatable {
             accessibilityItem,
             microphoneItem,
             .separator(),
-            NSMenuItem(title: "Open Log", action: #selector(openLog), keyEquivalent: ""),
+            NSMenuItem(title: "Open Log", action: #selector(openLog), keyEquivalent: "l"),
             NSMenuItem(title: "Open Errors", action: #selector(openErrors), keyEquivalent: ""),
             NSMenuItem(title: "Open Config", action: #selector(openConfig), keyEquivalent: ","),
             .separator(),
