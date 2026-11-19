@@ -2,7 +2,7 @@
 
 *Kiku* (聞く): to listen.
 
-Hold a key, talk, let go. Your words land in whatever app you're in, minus the ums.
+Hold a key, talk, let go. Your words land in whatever app you're in.  
 
 | You say | It pastes |
 | --- | --- |
