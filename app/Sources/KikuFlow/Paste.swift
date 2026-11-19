@@ -6,9 +6,17 @@ import Carbon.HIToolbox
     let saved = pasteboard.pasteboardItems?.map { item in
         item.types.compactMap { type in item.data(forType: type).map { (type, $0) } }
     } ?? []
+    // With no text input to land in, the dictation stays on the clipboard for the user to paste.
+    var focused: CFTypeRef?, range: CFTypeRef?
+    let restore = AXUIElementCopyAttributeValue(
+        AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute as CFString, &focused) == .success
+        && AXUIElementCopyAttributeValue(
+            focused as! AXUIElement, kAXSelectedTextRangeAttribute as CFString, &range) == .success
     pasteboard.clearContents()
     pasteboard.setString(text, forType: .string)
-    pasteboard.setData(Data(), forType: .init("org.nspasteboard.TransientType"))  // clipboard managers skip it
+    if restore {
+        pasteboard.setData(Data(), forType: .init("org.nspasteboard.TransientType"))  // clipboard managers skip it
+    }
 
     let key = CGKeyCode(kVK_ANSI_V)
     guard AXIsProcessTrusted(),
@@ -20,6 +28,7 @@ import Carbon.HIToolbox
     down.post(tap: .cghidEventTap)
     up.post(tap: .cghidEventTap)
 
+    guard restore else { return }
     let ours = pasteboard.changeCount
     Task {
         try? await Task.sleep(for: .seconds(0.5))
