@@ -2,11 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "SloprFlow",
+    name: "KikuFlow",
     platforms: [.macOS(.v15)],
     targets: [
-        .executableTarget(name: "SloprFlow"),
-        .executableTarget(name: "SloprHUD"),
-        .testTarget(name: "SloprFlowTests", dependencies: ["SloprFlow"]),
+        .executableTarget(name: "KikuFlow"),
+        .executableTarget(name: "KikuHUD"),
+        .testTarget(name: "KikuFlowTests", dependencies: ["KikuFlow"]),
     ]
 )

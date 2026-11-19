@@ -20,10 +20,10 @@ enum HUDState: Equatable {
     }
 }
 
-/// The HUD program: the user's command from the config, or SloprHUD beside the app's executable.
+/// The HUD program: the user's command from the config, or KikuHUD beside the app's executable.
 /// It gets one line per state on its input and ends when that closes.
 @MainActor final class Renderer {
-    /// Called when the user's command could not start or exited, and SloprHUD took its place.
+    /// Called when the user's command could not start or exited, and KikuHUD took its place.
     var onStop: () -> Void = {}
 
     private var command = Config.renderer  // nil once it has stopped: it is not tried again until a restart
@@ -37,7 +37,7 @@ enum HUDState: Equatable {
     }
 
     func render(_ state: HUDState) {
-        // A SloprHUD that won't start is tried once a second, not on every level.
+        // A KikuHUD that won't start is tried once a second, not on every level.
         if command == nil, process?.isRunning != true, Date.now.timeIntervalSince(launched) > 1 { launch() }
         write(state.line)
     }
@@ -57,7 +57,7 @@ enum HUDState: Equatable {
             process.arguments = ["-c", command]
             process.currentDirectoryURL = Config.dir
         } else {
-            process.executableURL = Bundle.main.executableURL!.deletingLastPathComponent().appending(path: "SloprHUD")
+            process.executableURL = Bundle.main.executableURL!.deletingLastPathComponent().appending(path: "KikuHUD")
         }
         let pipe = Pipe()
         process.standardInput = pipe

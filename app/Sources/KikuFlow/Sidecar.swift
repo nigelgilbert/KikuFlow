@@ -65,7 +65,7 @@ import Foundation
 
     private func launch() {
         let process = Process()
-        process.executableURL = Config.dir.appending(path: "venv/bin/slopr-sidecar")
+        process.executableURL = Config.dir.appending(path: "venv/bin/kiku-sidecar")
         process.arguments = [String(port)]
         process.terminationHandler = { _ in Task { @MainActor [weak self] in self?.exited() } }
         do { try process.run() } catch { status = .failed(error.localizedDescription); return }

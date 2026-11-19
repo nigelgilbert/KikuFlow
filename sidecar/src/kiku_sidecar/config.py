@@ -1,10 +1,10 @@
-"""Config from ~/Library/Application Support/SloprFlow/config.toml."""
+"""Config from ~/Library/Application Support/KikuFlow/config.toml."""
 
 import tomllib
 from dataclasses import dataclass, fields
 from pathlib import Path
 
-APP_DIR = Path.home() / "Library/Application Support/SloprFlow"
+APP_DIR = Path.home() / "Library/Application Support/KikuFlow"
 
 # Default stt.model for each stt.engine, so changing only the engine works.
 STT_MODELS = {

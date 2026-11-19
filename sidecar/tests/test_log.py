@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from slopr_sidecar import lifecycle
-from slopr_sidecar.lifecycle import write_error, write_log
+from kiku_sidecar import lifecycle
+from kiku_sidecar.lifecycle import write_error, write_log
 
 
 @pytest.fixture

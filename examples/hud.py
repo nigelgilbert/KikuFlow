@@ -1,4 +1,4 @@
-"""A Slopr Flow HUD that speaks each warning and ignores the other states.
+"""A Kiku Flow HUD that speaks each warning and ignores the other states.
 
 Copy it beside config.toml and set renderer = "python3 hud.py" under [hud].
 """

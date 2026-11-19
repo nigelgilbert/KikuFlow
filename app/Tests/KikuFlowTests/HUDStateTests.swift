@@ -1,5 +1,5 @@
 import Testing
-@testable import SloprFlow
+@testable import KikuFlow
 
 @Test func hiddenLine() { #expect(HUDState.hidden.line == "hidden") }
 
