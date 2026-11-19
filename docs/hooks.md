@@ -4,7 +4,7 @@ A hook is a Python function that Kiku Flow calls at a fixed point in the dictati
 
 ```mermaid
 flowchart LR
-    mic((mic)) --> stt(transcribe) --> t(on_transcribed):::hook --> clean(cleanup model)
+    mic((mic)) --> stt(transcribe) --> t(on_transcribed):::hook --> clean(cleanup)
     clean --> c(on_cleaned):::hook --> paste(paste) --> s(on_sent):::hook --> log(log) --> d(on_done):::hook
     classDef hook stroke-dasharray: 4 3
 ```
