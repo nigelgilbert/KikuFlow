@@ -4,8 +4,8 @@
 
 Hold a key, talk, let go. Your words land in whatever app you're in.
 
-It works like a Unix pipe: text in, text out, your Python in the middle.
-
+It works like a Unix pipe: text in, text out, with your own Python hooks in the middle.  Powerful yet simple extensibility.
+ 
 | You say | It pastes |
 | --- | --- |
 | "Um, so we should meet Thursday. No, Friday." | We should meet Friday. |
