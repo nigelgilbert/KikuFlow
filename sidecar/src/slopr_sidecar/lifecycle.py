@@ -105,8 +105,10 @@ def report(hooks: Hooks, e: Exception) -> str:
 
 def prepend(path: Path, text: str, keep: int) -> None:
     """Put `text` first in the file at `path` as one line, keeping the first `keep`."""
+    if not (text := fold(text)):
+        return
     old = path.read_text("utf-8").strip().split("\n\n") if path.exists() else []
-    path.write_text("\n\n".join([fold(text), *filter(None, old)][:keep]), "utf-8")
+    path.write_text("\n\n".join([text, *filter(None, old)][:keep]), "utf-8")
 
 
 def write_log(text: str) -> None:
