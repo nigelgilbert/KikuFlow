@@ -45,8 +45,9 @@ enum Status: Equatable {
     private let recorder = Recorder()
     private let hud = Renderer()
     private var hide: Task<Void, Never>?
-    private let (key, keyWarning) = Config.hotkey
-    private lazy var hotkey = Hotkey(keys: key) { [weak self] down in self?.hotkeyChanged(down: down) }
+    private let keys = Config.hotkey
+    private var keyTitle: String { keys.map(\.title).joined(separator: " + ") }
+    private lazy var hotkey = Hotkey(keys: keys) { [weak self] down in self?.hotkeyChanged(down: down) }
     private var activity: Status? { didSet { refresh() } }
     private var status: Status { activity ?? sidecar.status }
 
@@ -71,7 +72,6 @@ enum Status: Equatable {
         refresh()
         hud.onStop = { [weak self] in self?.render(.warning("The HUD renderer stopped")) }
         hud.start()
-        if let keyWarning { render(.warning(keyWarning)) }
         sidecar.onChange = { [weak self] in self?.refresh() }
         sidecar.start()
         AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
@@ -82,7 +82,6 @@ enum Status: Equatable {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        hotkey.stop()  // sidecar.stop() can block the main run loop, and typing with it
         hud.stop()
         sidecar.stop()
     }
@@ -93,7 +92,7 @@ enum Status: Equatable {
         item.button?.image = NSImage(systemSymbolName: status.symbol, accessibilityDescription: status.title)
         // The menu grows to fit its longest title, so a long status is cut short; the hotkey is shown whole.
         let line = switch status {
-        case .ready: "Hold \(key.title) to talk"
+        case .ready: "Hold \(keyTitle) to talk"
         case .failed: String(status.title.dropFirst("Error: ".count))
         default: status.title
         }
@@ -117,7 +116,7 @@ enum Status: Equatable {
         case .authorized: break
         case .notDetermined:
             allowMicrophone()
-            return render(.warning("Allow microphone access, then hold \(key.title) again"))
+            return render(.warning("Allow microphone access, then hold \(keyTitle) again"))
         default:
             return render(.warning("Microphone access is off. Turn it on in System Settings › Privacy & Security."))
         }

@@ -62,9 +62,8 @@ model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
 port = 48123
 
 [hotkey]
-key = "right_option"   # hold to talk; names joined by "+", e.g. "right_option+space"
-# modifiers: "fn", "left_option", "right_option", "left_command", "right_command",
-# "left_control", "right_control"; plus at most one "space", never on its own
+key = "right_option"   # hold to talk; or "fn", "left_option", "left_command",
+# "right_command", "left_control", "right_control"; join names with "+" to hold several
 
 [hud]
 # renderer = ""   # a command run in this folder that gets the HUD states on its input;

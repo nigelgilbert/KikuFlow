@@ -12,33 +12,20 @@ import Testing
 }
 
 @Test func hotkeyReadsHotkeySection() {
-    #expect(Config.hotkey(in: Config.defaults).keys == [.rightOption])
-    #expect(Config.hotkey(in: "[hotkey]\nkey = \"fn\"  # globe\n").keys.title == "Fn")
+    #expect(Config.hotkey(in: Config.defaults) == [.rightOption])
+    #expect(Config.hotkey(in: "[hotkey]\nkey = \"fn\"  # globe\n").map(\.title) == ["Fn"])
 }
 
-@Test func hotkeyReadsCombos() throws {
-    let named = Hotkey.Key.named
-    let option = try #require(named["right_option"])
-    for (value, keys) in [
-        "right_option": [option],
-        "right_option+right_command": [option, try #require(named["right_command"])],
-        "right_option+space": [option, try #require(named["space"])],
-        "right_option + space": [option, try #require(named["space"])],
-    ] {
-        let hotkey = Config.hotkey(in: "[hotkey]\nkey = \"\(value)\"\n")
-        #expect(hotkey.keys == keys && hotkey.warning == nil, "\(value)")
-    }
-    #expect(Config.hotkey(in: "[hotkey]\nkey = \"right_option+space\"\n").keys.title == "Right Option + Space")
+@Test func hotkeyReadsACombo() {
+    let titles = ["Right Option", "Right Command"]
+    #expect(Config.hotkey(in: "[hotkey]\nkey = \"right_option+right_command\"\n").map(\.title) == titles)
+    #expect(Config.hotkey(in: "[hotkey]\nkey = \"right_option + right_command\"\n").map(\.title) == titles)
 }
 
-@Test func hotkeyDefaultsWhenMissingOrInvalid() {
-    let missing = Config.hotkey(in: "")
-    #expect(missing.keys == [.rightOption] && missing.warning == nil)
-    for value in ["caps_lock", "right_option+caps_lock", "right_option + caps_lock", "space", "right_option+space+space",
-                  "", "right_option+"] {
-        let hotkey = Config.hotkey(in: "[hotkey]\nkey = \"\(value)\"\n")
-        #expect(hotkey.keys == [.rightOption], "\(value)")
-        #expect(hotkey.warning == "Unknown hotkey \"\(value)\". Using Right Option.")
+@Test func hotkeyDefaultsWhenMissingOrUnknown() {
+    #expect(Config.hotkey(in: "") == [.rightOption])
+    for value in ["caps_lock", "right_option+caps_lock", "right_option+", ""] {
+        #expect(Config.hotkey(in: "[hotkey]\nkey = \"\(value)\"\n") == [.rightOption], "\(value)")
     }
 }
 

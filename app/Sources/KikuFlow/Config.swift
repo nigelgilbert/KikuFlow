@@ -22,9 +22,8 @@ enum Config {
         port = 48123
 
         [hotkey]
-        key = "right_option"   # hold to talk; names joined by "+", e.g. "right_option+space"
-        # modifiers: "fn", "left_option", "right_option", "left_command", "right_command",
-        # "left_control", "right_control"; plus at most one "space", never on its own
+        key = "right_option"   # hold to talk; or "fn", "left_option", "left_command",
+        # "right_command", "left_control", "right_control"; join names with "+" to hold several
 
         [hud]
         # renderer = ""   # a command run in this folder that gets the HUD states on its input;
@@ -34,22 +33,18 @@ enum Config {
 
     private static var text: String { (try? String(contentsOf: file, encoding: .utf8)) ?? "" }
     static var port: Int { port(in: text) }
-    static var hotkey: (keys: [Hotkey.Key], warning: String?) { hotkey(in: text) }
+    static var hotkey: [Hotkey.Key] { hotkey(in: text) }
     static var renderer: String? { renderer(in: text) }
 
     static func port(in toml: String) -> Int {
         value("port", section: "server", in: toml).flatMap { Int($0) } ?? 48123
     }
 
-    /// Names joined by `+`; the warning names a value that isn't a valid combo.
-    static func hotkey(in toml: String) -> (keys: [Hotkey.Key], warning: String?) {
-        guard let value = value("key", section: "hotkey", in: toml) else { return ([.rightOption], nil) }
-        let names = value.split(separator: "+", omittingEmptySubsequences: false)
-        let keys = names.compactMap { Hotkey.Key.named[$0.trimmingCharacters(in: .whitespaces)] }
-        // A normal key on its own would take that key away from every app.
-        guard keys.count == names.count, keys.contains(where: \.isModifier), keys.count(where: { !$0.isModifier }) <= 1
-        else { return ([.rightOption], "Unknown hotkey \"\(value)\". Using Right Option.") }
-        return (keys, nil)
+    /// Names joined by `+` are held together; a value with an unknown name falls back to Right Option.
+    static func hotkey(in toml: String) -> [Hotkey.Key] {
+        let names = value("key", section: "hotkey", in: toml)?.split(separator: "+", omittingEmptySubsequences: false)
+        let keys = names?.compactMap { Hotkey.Key.named[$0.trimmingCharacters(in: .whitespaces)] } ?? []
+        return keys.isEmpty || keys.count != names?.count ? [.rightOption] : keys
     }
 
     /// The user's HUD command; nil means KikuHUD.
