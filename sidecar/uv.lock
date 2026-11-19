@@ -1343,7 +1343,7 @@ wheels = [
 ]
 
 [[package]]
-name = "slopr-sidecar"
+name = "kiku-sidecar"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

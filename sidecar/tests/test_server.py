@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from slopr_sidecar import cleanup, lifecycle, server
-from slopr_sidecar.config import Config, load_config
+from kiku_sidecar import cleanup, lifecycle, server
+from kiku_sidecar.config import Config, load_config
 
 SPEECH = np.zeros(16_000, "<f4").tobytes()  # one second of raw float32 PCM
 RAW = "um so we should uh meet on Friday"

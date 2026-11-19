@@ -1,5 +1,5 @@
 import Testing
-@testable import SloprFlow
+@testable import KikuFlow
 
 @Test func portDefaultsWhenMissing() {
     #expect(Config.port(in: "") == 48123)

@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from slopr_sidecar import lifecycle
-from slopr_sidecar.lifecycle import (
+from kiku_sidecar import lifecycle
+from kiku_sidecar.lifecycle import (
     POINTS,
     default_message,
     fire,

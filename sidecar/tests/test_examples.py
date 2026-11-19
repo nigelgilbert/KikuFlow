@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from slopr_sidecar.lifecycle import load_hooks
+from kiku_sidecar.lifecycle import load_hooks
 
 README = Path(__file__).parents[2] / "examples/README.md"
 BLOCKS = re.findall(r"```python\n(.*?)```", README.read_text(), re.DOTALL)

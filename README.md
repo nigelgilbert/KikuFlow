@@ -1,4 +1,4 @@
-# Slopr Flow
+# Kiku Flow
 
 Hold-to-talk dictation for Apple Silicon Macs that runs entirely on your machine. Hold Right
 Option (or the key you pick in the config), speak, let go, and the cleaned-up text is pasted
@@ -12,15 +12,15 @@ MLX. No cloud, no account.
 
 - An Apple Silicon Mac on macOS 15 or later.
 - [uv](https://docs.astral.sh/uv/) (`brew install uv`). On first launch the app uses it to
-  install a pinned Python and the sidecar into `~/Library/Application Support/SloprFlow/venv`.
+  install a pinned Python and the sidecar into `~/Library/Application Support/KikuFlow/venv`.
   The first launch also downloads the models, several GB.
 - To build: Swift 6 (Xcode or the Command Line Tools).
 
 ## Build and run
 
 ```sh
-app/bundle.sh                # builds app/build/Slopr Flow.app
-open "app/build/Slopr Flow.app"
+app/bundle.sh                # builds app/build/Kiku Flow.app
+open "app/build/Kiku Flow.app"
 ```
 
 Tests: `app/test.sh`. The menu bar icon shows the state: hourglass while installing or loading
@@ -36,14 +36,14 @@ triangle when the models failed to load (the menu shows the error).
 - **Microphone**, asked for the first time you hold the key.
 
 While either is missing the menu has an item that opens the right System Settings pane.
-`app/bundle.sh` signs with a certificate named "Slopr Flow Dev" when your keychain has one, and
+`app/bundle.sh` signs with a certificate named "Kiku Flow Dev" when your keychain has one, and
 the Accessibility grant then survives rebuilds. Without one the bundle is ad-hoc signed, so
-after a rebuild macOS treats it as a new app: remove Slopr Flow from the Accessibility list and
+after a rebuild macOS treats it as a new app: remove Kiku Flow from the Accessibility list and
 grant it again.
 
 ## Config
 
-"Open Config" in the menu opens `~/Library/Application Support/SloprFlow/config.toml`, creating
+"Open Config" in the menu opens `~/Library/Application Support/KikuFlow/config.toml`, creating
 it with the defaults:
 
 ```toml
@@ -77,7 +77,7 @@ Keyboard › "Press 🌐 key to" to "Do Nothing", or macOS also runs that action
 ### Your own cleanup prompt or model
 
 Set `prompt_file` to a text file holding your prompt (a relative path is in
-`~/Library/Application Support/SloprFlow/`) and choose "Reload Slopr Flow" after editing it.
+`~/Library/Application Support/KikuFlow/`) and choose "Reload Kiku Flow" after editing it.
 With `prompt_role = "system"` the prompt is the system message and your words are the user
 message; with `"user"` the prompt and your words share one user message; empty keeps the
 model's built-in role, or `"system"` for any other model. Use `"user"` for a model whose
@@ -93,7 +93,7 @@ log in. Until then the menu shows `Access to model … is restricted`. Either:
 
 - accept the terms, then log in with a token, which the sidecar picks up from where `hf` saves
   it:
-  `~/Library/Application\ Support/SloprFlow/venv/bin/hf auth login` (or `hf auth login` if you
+  `~/Library/Application\ Support/KikuFlow/venv/bin/hf auth login` (or `hf auth login` if you
   have the CLI). `HF_TOKEN` works too, but only if it is in the environment the app is launched
   from, which Finder's isn't. Or
 - set `[cleanup] model = "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"`, which is
@@ -101,7 +101,7 @@ log in. Until then the menu shows `Access to model … is restricted`. Either:
 
 ## Log
 
-"Open Log" in the menu opens `~/Library/Application Support/SloprFlow/log.txt`, the text of
+"Open Log" in the menu opens `~/Library/Application Support/KikuFlow/log.txt`, the text of
 your last 100 dictations, newest first, one line each. The app always keeps it; an
 `on_sent` hook (below) can change what an entry says or keep a dictation out.
 
@@ -128,7 +128,7 @@ warning <text>     the message, on one line
 ```
 
 `[hud] renderer` names a command of yours, such as `"python3 hud.py"`. It runs through
-`/bin/sh` in `~/Library/Application Support/SloprFlow/`, so `hud.py` sits beside the config.
+`/bin/sh` in `~/Library/Application Support/KikuFlow/`, so `hud.py` sits beside the config.
 It gets the app's short `PATH`, so give the full path of a tool outside `/usr/bin`. It starts
 with the app and should end when its input closes, and ignore a line it doesn't know. If it
 can't start or it exits, the app warns "The HUD renderer stopped" and uses its own pill until
@@ -136,7 +136,7 @@ you quit and reopen it. Empty or missing means that pill. Quit and reopen the ap
 changing `renderer`.
 
 [examples/hud.py](examples/hud.py) speaks each warning and shows nothing else. The pill that
-comes with the app, `app/Sources/SloprHUD/`, is the example of a drawn one.
+comes with the app, `app/Sources/KikuHUD/`, is the example of a drawn one.
 
 ## Licenses and attributions
 

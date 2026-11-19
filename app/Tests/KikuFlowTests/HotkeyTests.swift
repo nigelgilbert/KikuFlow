@@ -1,5 +1,5 @@
 import Testing
-@testable import SloprFlow
+@testable import KikuFlow
 
 @MainActor @Test func rightOptionOnlyFiresOncePerPressAndRelease() {
     var events: [Bool] = []

@@ -1,7 +1,7 @@
 [project]
-name = "slopr-sidecar"
+name = "kiku-sidecar"
 version = "0.1.0"
-description = "Local transcription and cleanup server for Slopr Flow"
+description = "Local transcription and cleanup server for Kiku Flow"
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "fastapi",
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-slopr-sidecar = "slopr_sidecar.server:main"
+kiku-sidecar = "kiku_sidecar.server:main"
 
 [dependency-groups]
 dev = ["httpx", "pyright", "pytest", "ruff"]

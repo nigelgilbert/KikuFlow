@@ -1,6 +1,6 @@
 import AVFoundation
 import Testing
-@testable import SloprFlow
+@testable import KikuFlow
 
 /// One second of a 440 Hz tone, fed in 100 ms buffers, comes out as about 16 000 mono samples.
 @Test(arguments: [(48_000.0, 2 as AVAudioChannelCount, false), (44_100, 2, true), (24_000, 1, false), (16_000, 1, false)])
