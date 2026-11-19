@@ -77,7 +77,7 @@ Keyboard › "Press 🌐 key to" to "Do Nothing", or macOS also runs that action
 ### Your own cleanup prompt or model
 
 Set `prompt_file` to a text file holding your prompt (a relative path is in
-`~/Library/Application Support/SloprFlow/`) and choose "Restart Slopr Flow" after editing it.
+`~/Library/Application Support/SloprFlow/`) and choose "Reload Slopr Flow" after editing it.
 With `prompt_role = "system"` the prompt is the system message and your words are the user
 message; with `"user"` the prompt and your words share one user message; empty keeps the
 model's built-in role, or `"system"` for any other model. Use `"user"` for a model whose
