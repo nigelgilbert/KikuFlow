@@ -62,7 +62,7 @@ enum HUDState: Equatable {
         let pipe = Pipe()
         process.standardInput = pipe
         let id = ObjectIdentifier(process)
-        process.terminationHandler = { _ in Task { @MainActor [weak self] in self?.exited(id) } }
+        process.terminationHandler = { [weak self] _ in Task { @MainActor in self?.exited(id) } }
         try? input?.close()
         do {
             try process.run()
