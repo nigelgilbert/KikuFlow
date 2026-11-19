@@ -12,7 +12,10 @@ import Foundation
 
     func start() {
         Task {
-            if let error = await Self.bootstrap() { status = .failed(error) } else { launch() }
+            if let error = await Self.bootstrap() { status = .failed(error); return }
+            // Emptied once per app run; restarts append, so a crash's traceback outlives the relaunch.
+            FileManager.default.createFile(atPath: Config.sidecarLog.path, contents: nil)
+            launch()
         }
     }
 
@@ -67,6 +70,10 @@ import Foundation
         let process = Process()
         process.executableURL = Config.dir.appending(path: "venv/bin/kiku-sidecar")
         process.arguments = [String(port)]
+        // Stderr stays inherited if the log can't be opened.
+        if let log = try? FileHandle(forWritingTo: Config.sidecarLog), (try? log.seekToEnd()) != nil {
+            process.standardError = log
+        }
         process.terminationHandler = { _ in Task { @MainActor [weak self] in self?.exited() } }
         do { try process.run() } catch { status = .failed(error.localizedDescription); return }
         self.process = process
@@ -76,6 +83,7 @@ import Foundation
 
     private func exited() {
         guard !quitting else { return }
+        if restarts == 0, let process { recordExit(process) }  // once per streak, not every crash of a loop
         let delay = 1 << min(restarts, 5)
         restarts += 1
         status = .starting("Engine stopped, retry in \(delay) s…")
@@ -83,6 +91,28 @@ import Foundation
             try? await Task.sleep(for: .seconds(delay))
             if !quitting { launch() }
         }
+    }
+
+    /// Adds the exit to errors.txt as lifecycle.py's `write_error` would; the sidecar is dead, so no one else writes.
+    private func recordExit(_ process: Process) {
+        let status = process.terminationStatus
+        let how = process.terminationReason == .uncaughtSignal ? "was killed by signal \(status)"
+            : "exited with status \(status)"
+        let old: String
+        do { old = try String(contentsOf: Config.errors, encoding: .utf8) }
+        catch CocoaError.fileReadNoSuchFile { old = "" }
+        catch { return }  // unreadable, so leave it be rather than overwrite it
+        let time = DateFormatter()
+        time.locale = Locale(identifier: "en_US_POSIX")
+        time.dateFormat = "yyyy-MM-dd HH:mm "
+        let entry = time.string(from: .now) + "Engine \(how), see sidecar.log"
+        try? Self.prepend(entry, to: old, keep: 50).write(to: Config.errors, atomically: true, encoding: .utf8)
+    }
+
+    /// `old` with `entry` first and only the newest `keep` entries, as lifecycle.py's `prepend` writes it.
+    nonisolated static func prepend(_ entry: String, to old: String, keep: Int) -> String {
+        let entries = old.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: "\n\n")
+        return ([entry] + entries.filter { !$0.isEmpty }).prefix(keep).joined(separator: "\n\n")
     }
 
     private struct Health: Decodable {
