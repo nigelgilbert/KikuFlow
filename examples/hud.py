@@ -1,4 +1,4 @@
-"""A Kiku Flow HUD that speaks each warning and ignores the other states.
+"""A Kiku Flow HUD that posts a notification each time you finish talking, and draws nothing.
 
 Copy it beside config.toml and set renderer = "python3 hud.py" under [hud].
 """
@@ -7,6 +7,5 @@ import subprocess
 import sys
 
 for line in sys.stdin:
-    state, _, text = line.rstrip("\n").partition(" ")
-    if state == "warning":
-        subprocess.run(["say", text])
+    if line.strip() == "thinking":
+        subprocess.run(["osascript", "-e", 'display notification "Got it" with title "Kiku Flow"'])

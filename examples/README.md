@@ -14,6 +14,6 @@ Without the opening word, a dictation goes through as usual. The pirate has no o
 
 All but `voice_commands.py` bring their own model, `mlx-community/Qwen3-4B-Instruct-2507-4bit`. It downloads the first time and loads when the app starts. Each file loads its own copy, a few GB of memory apiece.
 
-[hud.py](hud.py) is not a hook. It is a HUD renderer that speaks each warning aloud; see [Your own HUD](../docs/customization.md#your-own-hud).
+[hud.py](hud.py) is not a hook. It is a HUD renderer that posts a notification each time you finish talking; see [Your own HUD](../docs/customization.md#your-own-hud).
 
 For how hooks work, and smaller recipes to start from, see [Lifecycle hooks](../docs/hooks.md).

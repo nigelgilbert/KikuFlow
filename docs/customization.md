@@ -15,33 +15,26 @@ Everything lives in the Kiku Flow folder, `~/Library/Application Support/KikuFlo
 
 ## The config file
 
-"Open Config" in the menu opens `config.toml`, creating it with the defaults:
+"Open Config" in the menu opens `config.toml`. These are the defaults:
 
 ```toml
+[hotkey]
+key = "right_option" # the key you hold to talk
+
 [stt]
-engine = "parakeet"   # or "whisper"
-# model defaults by engine: parakeet "mlx-community/parakeet-tdt-0.6b-v3",
-# whisper "mlx-community/whisper-large-v3-turbo"
+engine = "parakeet" # or "whisper"
 
 [cleanup]
-model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
-# or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
-# prompt_file = ""      # a text file whose contents replace the model's built-in prompt
-# prompt_role = ""      # "system" or "user": the chat role the prompt is sent as; rarely needed
-
-[server]
-port = 48123
-
-[hotkey]
-key = "right_option"   # hold to talk; or "fn", "left_option", "left_command",
-# "right_command", "left_control", "right_control"
+model = "ReFyneLabs/simplewords-dictation-cleanup-v3"   # tidies what you said
 
 [hud]
-# renderer = ""   # a command run in this folder that gets the HUD states on its input;
-# empty means the pill that comes with the app
+renderer = "" # your custom HUD
+
+[server]
+port = 48123 # speech engine port
 ```
 
-A missing key uses its default. Choose "Reload Kiku Flow" after any edit.
+A missing key uses its default, and each section below covers one of them. Choose "Reload Kiku Flow" after any edit.
 
 ## The hotkey
 
@@ -106,16 +99,15 @@ thinking
 warning <text>     a message of up to 120 characters, on one line
 ```
 
-What it does with them is up to it. This one, [examples/hud.py](../examples/hud.py), shows nothing and speaks each warning aloud:
+What it does with them is up to it. This one, [examples/hud.py](../examples/hud.py), draws nothing and posts a notification each time you finish talking:
 
 ```python
 import subprocess
 import sys
 
 for line in sys.stdin:
-    state, _, text = line.rstrip("\n").partition(" ")
-    if state == "warning":
-        subprocess.run(["say", text])
+    if line.strip() == "thinking":
+        subprocess.run(["osascript", "-e", 'display notification "Got it" with title "Kiku Flow"'])
 ```
 
 To use it, copy `hud.py` beside `config.toml`, set `[hud] renderer = "python3 hud.py"` and reload.
@@ -155,4 +147,4 @@ Nothing here is a setting, but it is what the app does:
 
 ## The port
 
-The app talks to its speech engine on `127.0.0.1`, port 48123. If something else on your Mac has that port, change `[server] port`.
+The app talks to its speech engine on `127.0.0.1` port `48123`. If something else on your Mac has that port, change `[server] port`.
