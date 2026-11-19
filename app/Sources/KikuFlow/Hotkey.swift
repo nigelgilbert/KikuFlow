@@ -70,8 +70,15 @@ import IOKit.hidsystem
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
             let held = { (key: Key) in CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(key.code)) }
             update(.flagsChanged, keyCode: 0, flags: modifiers.filter(held).reduce(0) { $0 | UInt64($1.mask) })
-            // A key-up missed while disabled would leave the normal key captured, and swallowed for good.
-            if let normal, normalHeld, !held(normal) { update(.keyUp, keyCode: Int64(normal.code), flags: 0) }
+            // A missed key-up would leave the normal key swallowed for good; a missed key-down would make its next
+            // repeat look like a first press.
+            if let normal {
+                if held(normal) {
+                    normalHeld = true
+                } else if normalHeld {
+                    update(.keyUp, keyCode: Int64(normal.code), flags: 0)
+                }
+            }
             return false
         }
         return update(type, keyCode: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags.rawValue)
