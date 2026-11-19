@@ -110,8 +110,8 @@ with the time in front, such as `2026-11-18 14:02 on_cleaned in voice.py:3: KeyE
 failure before the text is pasted also shows in the HUD, and nothing is pasted. The app always
 keeps it; an `on_error` hook (below) can change what an entry says or keep a failure out, but
 a failure to load the models always goes in, and so does an engine crash, once for a run of
-crashes. The speech engine's error output
-since the app started, tracebacks included, is in `sidecar.log` beside it.
+crashes. The speech engine's error output since the app started, tracebacks included, is in
+`sidecar.log` beside it.
 
 ## Lifecycle hooks
 
