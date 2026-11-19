@@ -30,9 +30,11 @@ triangle when the models failed to load (the menu shows the error).
 ## Permissions
 
 - **Accessibility**, asked for at launch: the hotkey and the ⌘V paste need it.
-  The hotkey starts working as soon as it's granted. If paste can't be sent, the text stays on
-  the clipboard. The paste sends the key in the V position of a US layout, so on layouts like
-  Dvorak it may not be ⌘V.
+  The hotkey starts working as soon as it's granted. After a paste into a text field your
+  previous clipboard comes back. When no text field has focus, or the paste can't be sent, the
+  text stays on the clipboard. Apps that don't report their text fields to Accessibility (some
+  Electron apps) count as no text field. The paste sends the key in the V position of a US
+  layout, so on layouts like Dvorak it may not be ⌘V.
 - **Microphone**, asked for the first time you hold the key.
 
 While either is missing the menu has an item that opens the right System Settings pane.
