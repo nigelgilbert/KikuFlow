@@ -11,11 +11,12 @@ from typing import Any
 
 from .config import APP_DIR
 
+# uvicorn's logger, not __name__, so that errors go to stderr in uvicorn's format.
 log = logging.getLogger("uvicorn.error")
 
 POINTS = ("on_transcribed", "on_cleaned", "on_sent", "on_done")
 HOOK_DIR = APP_DIR / "hooks"
-LOG = APP_DIR / "log.txt"
+LOG_FILE = APP_DIR / "log.txt"
 ERRORS = APP_DIR / "errors.txt"
 
 # Each hook with the file it was loaded from, for its label. on_error takes the exception.
@@ -56,7 +57,9 @@ def fold(text: str) -> str:
 
 def default_message(e: BaseException) -> str:
     """`label: Type: message` on one line, the label being the last note on `e`."""
-    parts = [*getattr(e, "__notes__", [])[-1:], type(e).__name__, str(e).strip()]
+    notes = getattr(e, "__notes__", [])
+    label = notes[-1] if notes else ""
+    parts = [label, type(e).__name__, str(e).strip()]
     return fold(": ".join(filter(None, parts)))
 
 
@@ -107,12 +110,12 @@ def prepend(path: Path, text: str, keep: int) -> None:
     """Put `text` first in the file at `path` as one line, keeping the newest `keep`."""
     if not (text := fold(text)):
         return
-    old = path.read_text("utf-8").strip().split("\n\n") if path.exists() else []
-    path.write_text("\n\n".join([text, *filter(None, old)][:keep]), "utf-8")
+    old = path.read_text(encoding="utf-8").strip().split("\n\n") if path.exists() else []
+    path.write_text("\n\n".join([text, *filter(None, old)][:keep]), encoding="utf-8")
 
 
 def write_log(text: str) -> None:
-    prepend(LOG, text, 100)
+    prepend(LOG_FILE, text, 100)
 
 
 def write_error(message: str) -> None:
