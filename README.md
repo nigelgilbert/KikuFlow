@@ -10,7 +10,7 @@ It works like a Unix pipe: text in, text out, with your own Python hooks in the 
 | --- | --- |
 | "Um, so we should meet Thursday. No, Friday." | We should meet Friday. |
 
-Kiku Flow is yet another dictation app for Apple Silicon Macs.  It's fast and it runs entirely on your machine. NVIDIA Parakeet does the listening and a small language model does the tidying. 
+Kiku Flow is yet another dictation app for Apple Silicon Macs.  It's fast and it runs entirely on your machine. NVIDIA Parakeet for listening and a small language model for cleanup. 
 
 No telemetry and nothing you say leaves your Mac.
 
