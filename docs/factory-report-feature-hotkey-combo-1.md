@@ -61,3 +61,46 @@ Range `5a3634b..d52ffed`. 12 candidates, 3 kept (1 fix, 2 nit). One exchange wit
 ### Split
 
 None.
+
+## Work items
+
+1. **Read a combo from the config.** `f97a7fd`. `Config.hotkey(in:)` splits `key` on `+`, checks
+   the combo and returns the keys with a warning for a value that isn't valid; the app shows the
+   warning once at launch. `space` joins the key table. The menu's ready line shows the whole
+   combo title.
+2. **Fire on a combo, and swallow its normal key.** `9c95a64`. `Hotkey` holds the modifiers and
+   an optional normal key. Modifier state comes from `flagsChanged` only; the normal key is
+   captured on a first press with the modifiers held and swallowed until it comes up. The tap asks
+   for key events only when the combo has a normal key. Six new tests.
+3. **Describe it where the config is described.** `d52ffed`. The `[hotkey]` comment in
+   `Config.defaults` and the same block in `README.md`.
+
+Decided by the implementer where the work file was silent:
+
+- Every value that isn't valid gets the "Unknown hotkey" wording, also `"space"` on its own.
+- A repeated modifier (`right_option+right_option`) is accepted.
+- After a modifier is let go while Space is still held, pressing the modifier again does not
+  start a new recording; Space has to come up first.
+
+## Fix pass 1
+
+Pass base `670782f`. All three items taken, no pushback.
+
+1. Re-enable reads the normal key both ways: `b2159c1`.
+2. Disable the tap first when quitting: `c4028c0`. `Hotkey.stop()`, called first in
+   `applicationWillTerminate`.
+3. Test a warning value with inner spaces: `4333a3b`.
+
+## Open items
+
+- The paragraph under the config example in `README.md` (lines 74-76) still says a name that
+  isn't in the list falls back to Right Option, and names only `key = "fn"` in the Fn advice.
+  Left alone because the work file limits README changes to the `[hotkey]` block.
+- Not checked on a live keyboard: that a swallowed Space and its repeats never reach the focused
+  app; that arrow and function keys don't fire an `fn` combo; the tap's re-enable path; that the
+  launch warning shows in the HUD; that a modifier-only hotkey gets no key events. The tests drive
+  the state logic only.
+
+## Tests
+
+`app/test.sh`: 21 tests passed (14 before this work). `swift build` in `app/`: no warnings.
