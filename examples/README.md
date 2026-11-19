@@ -16,7 +16,7 @@ A text hook returns a string to replace the text, nothing to leave it, or `""` t
 `on_error` returns the message, nothing for the default one, or `""` for none.
 
 Put hook files in `hooks/` in this repo. They run in filename order.
-Choose "Reload Slopr Flow" after an edit.
+Choose "Reload Kiku Flow" after an edit.
 
 A hook that raises stops the dictation. The message goes to `errors.txt`, and to the HUD when
 nothing has been pasted yet.
@@ -29,7 +29,7 @@ cleanup model sees them.
 ```python
 import re
 
-WORDS = {"slopper": "Slopr", "jason": "JSON", "mac os": "macOS"}  # keys in lower case
+WORDS = {"kiko": "Kiku", "jason": "JSON", "mac os": "macOS"}  # keys in lower case
 PATTERN = re.compile(r"\b(" + "|".join(map(re.escape, WORDS)) + r")\b", re.IGNORECASE)
 
 

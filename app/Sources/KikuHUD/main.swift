@@ -1,4 +1,4 @@
-// The pill that comes with Slopr Flow, and an example of a drawn HUD renderer. It reads one state per
+// The pill that comes with Kiku Flow, and an example of a drawn HUD renderer. It reads one state per
 // line on standard input: `hidden`, `listening 0.42`, `thinking` or `warning` and a message.
 // It ignores a line it doesn't know and exits when its input closes.
 import AppKit

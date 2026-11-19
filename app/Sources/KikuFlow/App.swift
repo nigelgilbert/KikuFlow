@@ -64,8 +64,8 @@ enum Status: Equatable {
             NSMenuItem(title: "Open Errors", action: #selector(openErrors), keyEquivalent: "e"),
             NSMenuItem(title: "Open Config", action: #selector(openConfig), keyEquivalent: ","),
             .separator(),
-            NSMenuItem(title: "Reload Slopr Flow", action: #selector(reload), keyEquivalent: "r"),
-            NSMenuItem(title: "Quit Slopr Flow", action: #selector(NSApplication.terminate), keyEquivalent: "q"),
+            NSMenuItem(title: "Reload Kiku Flow", action: #selector(reload), keyEquivalent: "r"),
+            NSMenuItem(title: "Quit Kiku Flow", action: #selector(NSApplication.terminate), keyEquivalent: "q"),
         ]
         item.menu = menu
         refresh()
@@ -108,7 +108,7 @@ enum Status: Equatable {
     private func startListening() {
         guard activity == nil else { return }
         guard sidecar.status == .ready else {
-            return render(.warning("Slopr Flow isn't ready. \(sidecar.status.title)"))
+            return render(.warning("Kiku Flow isn't ready. \(sidecar.status.title)"))
         }
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized: break

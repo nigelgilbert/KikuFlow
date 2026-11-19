@@ -1,4 +1,4 @@
-# Slopr Flow sidecar
+# Kiku Flow sidecar
 
 Local HTTP server that turns dictated audio into raw and cleaned text. Listens on
 `127.0.0.1` on the port given at launch (see below). JSON responses.
@@ -13,11 +13,11 @@ From the app bundle, keep `scripts/` and `sidecar/` side by side and run once pe
 ```
 
 It exits non-zero with a message on stderr if `uv` is missing. It creates
-`~/Library/Application Support/SloprFlow/venv` with the pinned Python. Start the server as a
+`~/Library/Application Support/KikuFlow/venv` with the pinned Python. Start the server as a
 child process, passing the port as the only argument:
 
 ```sh
-"$HOME/Library/Application Support/SloprFlow/venv/bin/slopr-sidecar" 48123
+"$HOME/Library/Application Support/KikuFlow/venv/bin/kiku-sidecar" 48123
 ```
 
 The config is read only by the model loader, so a broken config shows up as a `/health` error
@@ -65,9 +65,9 @@ the cleanup stage (`clean` is its result), then, once the response has been sent
 gets its result), the log and `on_done`. Those three do not delay the reply, but they run on the
 model thread, so a slow hook holds up the next dictation. `raw` is always the speech recognition
 output. Once the text is empty, nothing further runs, the log included. The log is always written,
-by the sidecar itself: the last 100 texts in `~/Library/Application Support/SloprFlow/log.txt`,
+by the sidecar itself: the last 100 texts in `~/Library/Application Support/KikuFlow/log.txt`,
 newest first, one line each. Hook files are the `*.py` files in
-`~/Library/Application Support/SloprFlow/hooks/`, which `app/bundle.sh` links to `hooks/` in the
+`~/Library/Application Support/KikuFlow/hooks/`, which `app/bundle.sh` links to `hooks/` in the
 repo. They load before the models, and one that fails to import fails the load.
 Examples: `examples/README.md`.
 
@@ -78,7 +78,7 @@ default message is `on_cleaned in voice.py:3: KeyError: 'x'`, on one line. A hoo
 neither a string nor `None` raises `TypeError: on_cleaned returned dict, not str or None`.
 `on_error(e)` hooks get the exception, in filename order; the first that returns a string decides
 the message, `""` means none, and one that raises is skipped and recorded under its own default
-message. The message goes into `~/Library/Application Support/SloprFlow/errors.txt`, the last 50,
+message. The message goes into `~/Library/Application Support/KikuFlow/errors.txt`, the last 50,
 newest first, with the time in front, and the traceback to stderr. A failure after the response goes
 nowhere else.
 
@@ -88,7 +88,7 @@ reason). Requests are processed one at a time; one sent while models load waits 
 
 ## Config
 
-`~/Library/Application Support/SloprFlow/config.toml`, read once at launch. Missing file or keys
+`~/Library/Application Support/KikuFlow/config.toml`, read once at launch. Missing file or keys
 use these defaults:
 
 ```toml
@@ -105,7 +105,7 @@ prompt_role = ""      # "system" or "user": the chat role the prompt is sent as;
 
 The app reads `[server] port` and `[hotkey] key` from the same file; the sidecar ignores them.
 
-`prompt_file`: `~` expanded, relative to `~/Library/Application Support/SloprFlow/`, read at
+`prompt_file`: `~` expanded, relative to `~/Library/Application Support/KikuFlow/`, read at
 model load; missing or empty is a load error naming the path.
 `prompt_role`: `"system"` sends the prompt verbatim as the system turn and the transcript as the
 user turn; `"user"` sends one user turn, the stripped prompt, a blank line, the transcript; any
@@ -124,5 +124,5 @@ a token saved by `hf auth login`). Otherwise `/health` reports a `GatedRepoError
 
 ```sh
 uv run pytest -q && uv run ruff check . && uv run pyright
-uv run slopr-sidecar 48123
+uv run kiku-sidecar 48123
 ```

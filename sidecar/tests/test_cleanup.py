@@ -2,14 +2,14 @@ from pathlib import Path
 
 import pytest
 
-from slopr_sidecar import cleanup
-from slopr_sidecar.cleanup import (
+from kiku_sidecar import cleanup
+from kiku_sidecar.cleanup import (
     REFYNE,
     UTTER,
     build_messages,
     load_cleaner,
 )
-from slopr_sidecar.config import Config
+from kiku_sidecar.config import Config
 
 
 def test_unsupported_model_fails_at_load():

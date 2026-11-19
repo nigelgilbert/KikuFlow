@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from slopr_sidecar.config import Config, load_config
+from kiku_sidecar.config import Config, load_config
 
 
 def test_missing_file_gives_defaults(tmp_path: Path):

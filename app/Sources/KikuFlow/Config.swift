@@ -1,7 +1,7 @@
 import AppKit
 
 enum Config {
-    static let dir = URL.applicationSupportDirectory.appending(path: "SloprFlow")
+    static let dir = URL.applicationSupportDirectory.appending(path: "KikuFlow")
     static let file = dir.appending(path: "config.toml")
     static let log = dir.appending(path: "log.txt")
     static let errors = dir.appending(path: "errors.txt")
@@ -44,7 +44,7 @@ enum Config {
         value("key", section: "hotkey", in: toml).flatMap { Hotkey.Key.named[$0] } ?? .rightOption
     }
 
-    /// The user's HUD command; nil means SloprHUD.
+    /// The user's HUD command; nil means KikuHUD.
     static func renderer(in toml: String) -> String? {
         value("renderer", section: "hud", in: toml).flatMap { $0.isEmpty ? nil : $0 }
     }

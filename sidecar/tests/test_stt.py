@@ -4,7 +4,7 @@ import wave
 import numpy as np
 import pytest
 
-from slopr_sidecar.stt import decode_audio, load_transcriber
+from kiku_sidecar.stt import decode_audio, load_transcriber
 
 
 def test_wav_and_raw_pcm_decode_to_the_same_samples():
