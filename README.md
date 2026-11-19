@@ -1,156 +1,67 @@
 # Kiku Flow
 
-Hold-to-talk dictation for Apple Silicon Macs that runs entirely on your machine. Hold Right
-Option (or the key you pick in the config), speak, let go, and the cleaned-up text is pasted
-into whatever app has focus.
+*Kiku* (聞く): to listen.
 
-It is a small menu-bar app (`app/`, Swift) driving a local Python server (`sidecar/`) that
-transcribes with NVIDIA Parakeet and tidies the text with a small fine-tuned LLM, both through
-MLX. No cloud, no account.
+Hold a key, talk, let go. Your words land in whatever app you're in.
 
-## Requirements
+It works like a Unix pipe: text in, text out, your Python in the middle.
 
-- An Apple Silicon Mac on macOS 15 or later.
-- [uv](https://docs.astral.sh/uv/) (`brew install uv`). On first launch the app uses it to
-  install a pinned Python and the sidecar into `~/Library/Application Support/KikuFlow/venv`.
-  The first launch also downloads the models, several GB.
-- To build: Swift 6 (Xcode or the Command Line Tools).
+| You say | It pastes |
+| --- | --- |
+| "Um, so we should meet Thursday. No, Friday." | We should meet Friday. |
 
-## Build and run
+Kiku Flow is yet another dictation app for Apple Silicon Macs.  It's fast and it runs entirely on your machine. NVIDIA Parakeet does the listening and a small language model does the tidying. 
+
+No telemetry and nothing you say leaves your Mac.
+
+## You can script it
+
+Every dictation takes the same short trip, and the stops in brackets are yours:
+
+```
+mic → transcribe → [on_transcribed] → cleanup → [on_cleaned] → paste → [on_sent] → log → [on_done]
+```
+
+A hook is a Python function in a file in `hooks/`. It gets the text and returns the text. This one makes every dictation read like a chat message, with no capital at the start and no full stop at the end:
+
+```python
+def on_cleaned(t):
+    t = t.removesuffix(".")
+    return t[:1].lower() + t[1:]
+```
+
+That is the whole plugin system. A hook is plain Python, so it can call a second model or drive your Mac. The ones in [examples/](examples/) translate what you say, answer your questions and run commands by voice.
+
+## Quick start
+
+You need an Apple Silicon Mac on macOS 15 or later, Swift 6 (Xcode or the Command Line Tools) and [uv](https://docs.astral.sh/uv/).
 
 ```sh
-app/bundle.sh                # builds app/build/Kiku Flow.app
+brew install uv
+app/bundle.sh
 open "app/build/Kiku Flow.app"
 ```
 
-Tests: `app/test.sh`. The menu bar icon shows the state: hourglass while installing or loading
-models, microphone when ready, waveform while listening, ellipsis while transcribing, a warning
-triangle when the models failed to load (the menu shows the error).
+The first launch installs its own Python and downloads the models, several GB.
 
-## Permissions
+1. Grant **Accessibility** when asked. The hotkey and the paste need it.
+2. Hold Right Option. The first time, macOS asks for the **Microphone**; allow it and hold again.
+3. Say something and let go.
 
-- **Accessibility**, asked for at launch: the hotkey and the ⌘V paste need it.
-  The hotkey starts working as soon as it's granted. After a paste into a text field your
-  previous clipboard comes back. When no text field has focus, or the paste can't be sent, the
-  text stays on the clipboard. Apps that don't report their text fields to Accessibility (some
-  Electron apps) count as no text field. The paste sends the key in the V position of a US
-  layout, so on layouts like Dvorak it may not be ⌘V.
-- **Microphone**, asked for the first time you hold the key.
+The default cleanup model needs a free Hugging Face login. If the icon turns into a warning triangle, [the cleanup model](docs/customization.md#cleanup) has the two ways past it.
 
-While either is missing the menu has an item that opens the right System Settings pane.
-`app/bundle.sh` signs with a certificate named "Kiku Flow Dev" when your keychain has one, and
-the Accessibility grant then survives rebuilds. Without one the bundle is ad-hoc signed, so
-after a rebuild macOS treats it as a new app: remove Kiku Flow from the Accessibility list and
-grant it again.
+## Make it yours
 
-## Config
+- [Lifecycle hooks](docs/hooks.md): the pipeline, the hooks and a page of recipes.
+- [Customization](docs/customization.md): the hotkey, the models, your own cleanup prompt, the log, your own HUD, and how the paste behaves.
+- [examples/](examples/): hooks to copy into `hooks/` and talk to.
 
-"Open Config" in the menu opens `~/Library/Application Support/KikuFlow/config.toml`, creating
-it with the defaults:
+## Under the hood
 
-```toml
-[stt]
-engine = "parakeet"   # or "whisper"
-# model defaults by engine: parakeet "mlx-community/parakeet-tdt-0.6b-v3",
-# whisper "mlx-community/whisper-large-v3-turbo"
-
-[cleanup]
-model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
-# or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
-# prompt_file = ""      # a text file whose contents replace the model's built-in prompt
-# prompt_role = ""      # "system" or "user": the chat role the prompt is sent as; rarely needed
-
-[server]
-port = 48123
-
-[hotkey]
-key = "right_option"   # hold to talk; or "fn", "left_option", "left_command",
-# "right_command", "left_control", "right_control"
-
-[hud]
-# renderer = ""   # a command run in this folder that gets the HUD states on its input;
-# empty means the pill that comes with the app
-```
-
-Quit and reopen the app after editing it. The menu's first line names the key in use; a name
-that isn't in the list falls back to Right Option. With `key = "fn"`, set System Settings ›
-Keyboard › "Press 🌐 key to" to "Do Nothing", or macOS also runs that action when you let go.
-
-### Your own cleanup prompt or model
-
-Set `prompt_file` to a text file holding your prompt (a relative path is in
-`~/Library/Application Support/KikuFlow/`) and choose "Reload Kiku Flow" after editing it.
-With `prompt_role = "system"` the prompt is the system message and your words are the user
-message; with `"user"` the prompt and your words share one user message; empty keeps the
-model's built-in role, or `"system"` for any other model. Use `"user"` for a model whose
-chat template has no system role. With `prompt_file` set, `model` can be any mlx-lm chat model.
-The built-in models are fine-tunes trained on one exact prompt, so a new prompt for them will
-likely clean up worse.
-
-### The default cleanup model is gated
-
-`ReFyneLabs/simplewords-dictation-cleanup-v3` downloads only after you accept its terms on
-[its Hugging Face page](https://huggingface.co/ReFyneLabs/simplewords-dictation-cleanup-v3) and
-log in. Until then the menu shows `Access to model … is restricted`. Either:
-
-- accept the terms, then log in with a token, which the sidecar picks up from where `hf` saves
-  it:
-  `~/Library/Application\ Support/KikuFlow/venv/bin/hf auth login` (or `hf auth login` if you
-  have the CLI). `HF_TOKEN` works too, but only if it is in the environment the app is launched
-  from, which Finder's isn't. Or
-- set `[cleanup] model = "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"`, which is
-  not gated.
-
-## Log
-
-"Open Log" in the menu opens `~/Library/Application Support/KikuFlow/log.txt`, the text of
-your last 100 dictations, newest first, one line each. The app always keeps it; an
-`on_sent` hook (below) can change what an entry says or keep a dictation out.
-
-"Open Errors" opens `errors.txt` beside it: the last 50 failures, newest first, one line each
-with the time in front, such as `2026-11-18 14:02 on_cleaned in voice.py:3: KeyError: 'x'`. A
-failure before the text is pasted also shows in the HUD, and nothing is pasted. The app always
-keeps it; an `on_error` hook (below) can change what an entry says or keep a failure out, but
-a failure to load the models always goes in, and so does an engine crash, once for a run of
-crashes. The speech engine's error output since the app started, tracebacks included, is in
-`sidecar.log` beside it.
-
-## Lifecycle hooks
-
-Hooks are plain Python functions that change the text after each step of a dictation, or the
-message of a failure. Put hook files in `hooks/` in this repo; see
-[examples/README.md](examples/README.md).
-
-## Your own HUD
-
-The HUD is a program that gets one line on its standard input for each state:
-
-```
-hidden
-listening 0.42     the mic level, 0.00 to 1.00, many times a second
-thinking
-warning <text>     the message, on one line
-```
-
-`[hud] renderer` names a command of yours, such as `"python3 hud.py"`. It runs through
-`/bin/sh` in `~/Library/Application Support/KikuFlow/`, so `hud.py` sits beside the config.
-It gets the app's short `PATH`, so give the full path of a tool outside `/usr/bin`. It starts
-with the app and should end when its input closes, and ignore a line it doesn't know. If it
-can't start or it exits, the app warns "The HUD renderer stopped" and uses its own pill until
-you quit and reopen it. Empty or missing means that pill. Quit and reopen the app after
-changing `renderer`.
-
-[examples/hud.py](examples/hud.py) speaks each warning and shows nothing else. The pill that
-comes with the app, `app/Sources/KikuHUD/`, is the example of a drawn one.
+`app/` is a small Swift menu-bar app that watches the key, records and pastes. `sidecar/` is the speech engine, a local Python server that transcribes and cleans up through MLX; [its README](sidecar/README.md) has the HTTP API. Tests are `app/test.sh` and, in `sidecar/`, `uv run pytest -q`.
 
 ## Licenses and attributions
 
-- Speech recognition: [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)
-  by NVIDIA, licensed under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/), used through
-  the MLX conversion `mlx-community/parakeet-tdt-0.6b-v3` and
-  [parakeet-mlx](https://github.com/senstella/parakeet-mlx).
-- Cleanup models: `ReFyneLabs/simplewords-dictation-cleanup-v3` and
-  `devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit`, under the terms on their model
-  pages.
-- Python dependencies (MLX, mlx-lm, mlx-whisper, FastAPI, uvicorn, NumPy) are installed by uv
-  under their own licenses.
+- Speech recognition: [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) by NVIDIA, licensed under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/), used through the MLX conversion `mlx-community/parakeet-tdt-0.6b-v3` and [parakeet-mlx](https://github.com/senstella/parakeet-mlx).
+- Cleanup models: `ReFyneLabs/simplewords-dictation-cleanup-v3` and `devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit`, under the terms on their model pages.
+- Python dependencies (MLX, mlx-lm, mlx-whisper, FastAPI, uvicorn, NumPy) are installed by uv under their own licenses.

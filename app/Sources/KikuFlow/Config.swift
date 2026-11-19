@@ -8,27 +8,20 @@ enum Config {
     static let sidecarLog = dir.appending(path: "sidecar.log")
 
     static let defaults = """
+        [hotkey]
+        key = "right_option"
+
         [stt]
-        engine = "parakeet"   # or "whisper"
-        # model defaults by engine: parakeet "mlx-community/parakeet-tdt-0.6b-v3",
-        # whisper "mlx-community/whisper-large-v3-turbo"
+        engine = "parakeet"
 
         [cleanup]
         model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
-        # or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
-        # prompt_file = ""      # a text file whose contents replace the model's built-in prompt
-        # prompt_role = ""      # "system" or "user": the chat role the prompt is sent as; rarely needed
+
+        [hud]
+        renderer = ""
 
         [server]
         port = 48123
-
-        [hotkey]
-        key = "right_option"   # hold to talk; or "fn", "left_option", "left_command",
-        # "right_command", "left_control", "right_control"
-
-        [hud]
-        # renderer = ""   # a command run in this folder that gets the HUD states on its input;
-        # empty means the pill that comes with the app
 
         """
 
