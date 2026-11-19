@@ -17,7 +17,6 @@ enum Config {
         # or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
         # prompt_file = ""      # a text file whose contents replace the model's built-in prompt
         # prompt_role = ""      # "system" or "user": the chat role the prompt is sent as; rarely needed
-        # safety_check = true   # false keeps whatever the model returns
 
         [server]
         port = 48123
