@@ -82,6 +82,7 @@ enum Status: Equatable {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        hotkey.stop()  // sidecar.stop() can block the main run loop, and typing with it
         hud.stop()
         sidecar.stop()
     }

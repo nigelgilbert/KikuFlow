@@ -65,6 +65,9 @@ import IOKit.hidsystem
         return true
     }
 
+    /// Lets key events stop going through the main run loop while the app quits.
+    func stop() { if let tap { CGEvent.tapEnable(tap: tap, enable: false) } }
+
     private func handle(_ type: CGEventType, _ event: CGEvent) -> Bool {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
