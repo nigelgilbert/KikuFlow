@@ -57,7 +57,6 @@ model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
 # or "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
 # prompt_file = ""      # a text file whose contents replace the model's built-in prompt
 # prompt_role = ""      # "system" or "user": the chat role the prompt is sent as; rarely needed
-# safety_check = true   # false keeps whatever the model returns
 
 [server]
 port = 48123
@@ -83,10 +82,8 @@ With `prompt_role = "system"` the prompt is the system message and your words ar
 message; with `"user"` the prompt and your words share one user message; empty keeps the
 model's built-in role, or `"system"` for any other model. Use `"user"` for a model whose
 chat template has no system role. With `prompt_file` set, `model` can be any mlx-lm chat model.
-Two caveats: the built-in models are fine-tunes trained on one exact prompt, so a new prompt for
-them will likely clean up worse; and a prompt that is not a cleanup (translate, summarize,
-rewrite as an email) needs `safety_check = false`, or its output is thrown away for not looking
-like a cleanup of your words.
+The built-in models are fine-tunes trained on one exact prompt, so a new prompt for them will
+likely clean up worse.
 
 ### The default cleanup model is gated
 

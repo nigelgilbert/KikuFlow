@@ -1,6 +1,5 @@
-"""LLM cleanup of the raw transcript, and a safety check against the model going off-script."""
+"""LLM cleanup of the raw transcript."""
 
-import re
 from collections.abc import Callable
 from pathlib import Path
 
@@ -79,30 +78,8 @@ def load_cleaner(config: Config) -> Cleaner:
         prompt = tokenizer.apply_chat_template(
             messages(raw), add_generation_prompt=True, enable_thinking=False, tokenize=False
         )
-        # Output longer than twice the input fails is_plausible anyway; without the check, leave
-        # room for prompts that expand the text but still stop a runaway generation.
-        n = len(tokenizer.encode(raw))
-        max_tokens = 2 * n + 16 if c.cleanup_safety_check else 4 * n + 256
+        # Room for prompts that expand the text, but a runaway generation still stops.
+        max_tokens = 4 * len(tokenizer.encode(raw)) + 256
         return generate(model, tokenizer, prompt, max_tokens=max_tokens, sampler=greedy).strip()
 
     return clean
-
-
-def accept(raw: str, clean: str, safety_check: bool) -> bool:
-    """Whether to use the cleanup output `clean` in place of `raw`."""
-    return is_plausible(raw, clean) if safety_check else bool(clean.strip())
-
-
-def _words(text: str) -> list[str]:
-    return re.findall(r"\w+", text.lower())
-
-
-def is_plausible(raw: str, clean: str) -> bool:
-    """Whether `clean` looks like a cleanup of `raw` rather than an answer, a rewrite or nothing."""
-    raw_words, clean_words = _words(raw), _words(clean)
-    if not raw_words or not clean_words:
-        return False
-    if not 0.25 <= len(clean_words) / len(raw_words) <= 2.0:
-        return False
-    known = set(raw_words)
-    return sum(w in known for w in clean_words) / len(clean_words) >= 0.6

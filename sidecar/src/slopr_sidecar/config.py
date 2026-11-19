@@ -20,7 +20,6 @@ class Config:
     cleanup_model: str = "ReFyneLabs/simplewords-dictation-cleanup-v3"
     cleanup_prompt_file: str = ""
     cleanup_prompt_role: str = ""
-    cleanup_safety_check: bool = True
 
 
 def load_config(path: Path = APP_DIR / "config.toml") -> Config:
@@ -34,7 +33,6 @@ def load_config(path: Path = APP_DIR / "config.toml") -> Config:
         cleanup_model=cleanup.get("model", d.cleanup_model),
         cleanup_prompt_file=cleanup.get("prompt_file", d.cleanup_prompt_file),
         cleanup_prompt_role=cleanup.get("prompt_role", d.cleanup_prompt_role),
-        cleanup_safety_check=cleanup.get("safety_check", d.cleanup_safety_check),
     )
     for f in fields(config):
         value, default = getattr(config, f.name), getattr(d, f.name)

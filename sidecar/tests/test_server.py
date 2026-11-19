@@ -139,24 +139,14 @@ def test_leftover_cleanup_enabled_is_ignored(fakes: Fakes, tmp_path: Path):
         assert client.post("/transcribe", content=SPEECH).json()["clean"] == fakes.cleaned
 
 
-def test_implausible_cleanup_falls_back_to_raw(fakes: Fakes, client: TestClient):
-    fakes.cleaned = "Friday is the fifth day of the week, named after the goddess Frigg."
-    assert client.post("/transcribe", content=SPEECH).json()["clean"] == RAW
+def test_cleanup_that_is_nothing_like_the_transcript_is_kept(fakes: Fakes, client: TestClient):
+    fakes.cleaned = "Rendez-vous vendredi."
+    assert client.post("/transcribe", content=SPEECH).json()["clean"] == "Rendez-vous vendredi."
 
 
 def test_empty_cleanup_falls_back_to_raw(fakes: Fakes, client: TestClient):
     fakes.cleaned = ""
     assert client.post("/transcribe", content=SPEECH).json()["clean"] == RAW
-
-
-@pytest.mark.parametrize(
-    ("cleaned", "clean"), [("Rendez-vous vendredi.", "Rendez-vous vendredi."), (" \n", RAW)]
-)
-def test_safety_check_off_keeps_any_non_empty_cleanup(fakes: Fakes, cleaned: str, clean: str):
-    fakes.config = Config(cleanup_safety_check=False)
-    fakes.cleaned = cleaned
-    with TestClient(server.app) as client:
-        assert client.post("/transcribe", content=SPEECH).json()["clean"] == clean
 
 
 def test_bad_audio_is_rejected_with_a_detail(client: TestClient):
@@ -438,9 +428,7 @@ def test_on_error_message_is_the_detail(hooks: Path, tmp_path: Path, client: Tes
     assert errors(tmp_path) == ["Oops, no"]
 
 
-def test_503_while_models_are_not_loaded_is_left_alone(
-    fakes: Fakes, hooks: Path, tmp_path: Path
-):
+def test_503_while_models_are_not_loaded_is_left_alone(fakes: Fakes, hooks: Path, tmp_path: Path):
     (hooks / "a.py").write_text("def on_error(e):\n    return 'from on_error'\n")
     fakes.config = Config(stt_engine="vosk")
     with TestClient(server.app) as client:
