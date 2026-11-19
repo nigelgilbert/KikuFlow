@@ -10,7 +10,7 @@ from kiku_sidecar.lifecycle import write_error, write_log
 @pytest.fixture
 def log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Write texts to a temporary log.txt and return what it holds."""
-    monkeypatch.setattr(lifecycle, "LOG", tmp_path / "log.txt")
+    monkeypatch.setattr(lifecycle, "LOG_FILE", tmp_path / "log.txt")
 
     def dictate(*texts: str) -> str:
         for text in texts:

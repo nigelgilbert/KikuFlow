@@ -32,6 +32,7 @@ from .lifecycle import (
 )
 from .stt import SAMPLE_RATE, Transcriber, decode_audio, load_transcriber
 
+# uvicorn's logger, not __name__, so that errors go to stderr in uvicorn's format.
 log = logging.getLogger("uvicorn.error")
 
 # All model work (loading and inference) runs on this one thread, one job at a time.
