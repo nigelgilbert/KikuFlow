@@ -43,7 +43,7 @@ enum Status: Equatable {
 
     private let sidecar = Sidecar()
     private let recorder = Recorder()
-    private let hud: any Renderer = BuiltinRenderer()
+    private let hud = Renderer()
     private var hide: Task<Void, Never>?
     private let key = Config.hotkey
     private lazy var hotkey = Hotkey(key: key) { [weak self] down in self?.hotkeyChanged(down: down) }
@@ -69,6 +69,8 @@ enum Status: Equatable {
         ]
         item.menu = menu
         refresh()
+        hud.onStop = { [weak self] in self?.render(.warning("The HUD renderer stopped")) }
+        hud.start()
         sidecar.onChange = { [weak self] in self?.refresh() }
         sidecar.start()
         AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
@@ -78,7 +80,10 @@ enum Status: Equatable {
         }
     }
 
-    func applicationWillTerminate(_ notification: Notification) { sidecar.stop() }
+    func applicationWillTerminate(_ notification: Notification) {
+        hud.stop()
+        sidecar.stop()
+    }
 
     func menuNeedsUpdate(_ menu: NSMenu) { refresh() }
 

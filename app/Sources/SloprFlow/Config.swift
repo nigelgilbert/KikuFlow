@@ -26,11 +26,16 @@ enum Config {
         key = "right_option"   # hold to talk; or "fn", "left_option", "left_command",
         # "right_command", "left_control", "right_control"
 
+        [hud]
+        # renderer = ""   # a command run in this folder that gets the HUD states on its input;
+        # empty means the pill that comes with the app
+
         """
 
     private static var text: String { (try? String(contentsOf: file, encoding: .utf8)) ?? "" }
     static var port: Int { port(in: text) }
     static var hotkey: Hotkey.Key { hotkey(in: text) }
+    static var renderer: String? { renderer(in: text) }
 
     static func port(in toml: String) -> Int {
         value("port", section: "server", in: toml).flatMap { Int($0) } ?? 48123
@@ -40,20 +45,44 @@ enum Config {
         value("key", section: "hotkey", in: toml).flatMap { Hotkey.Key.named[$0] } ?? .rightOption
     }
 
+    /// The user's HUD command; nil means SloprHUD.
+    static func renderer(in toml: String) -> String? {
+        value("renderer", section: "hud", in: toml).flatMap { $0.isEmpty ? nil : $0 }
+    }
+
     /// Reads only the flat `key = value` subset of TOML that the file uses.
     private static func value(_ key: String, section: String, in toml: String) -> String? {
         var current = ""
         for line in toml.split(whereSeparator: \.isNewline) {
-            let line = line.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)[0]
-                .trimmingCharacters(in: .whitespaces)
+            let line = uncommented(line).trimmingCharacters(in: .whitespaces)
             if line.hasPrefix("[") {
                 current = line
             } else if current == "[\(section)]" {
                 let kv = line.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
-                if kv.count == 2, kv[0] == key { return kv[1].trimmingCharacters(in: ["\"", "'"]) }
+                if kv.count == 2, kv[0] == key {
+                    let v = kv[1]
+                    let quoted = v.count >= 2 && v.first == v.last && (v.first == "\"" || v.first == "'")
+                    return quoted ? String(v.dropFirst().dropLast()) : v
+                }
             }
         }
         return nil
+    }
+
+    /// `line` up to its `#` comment; a `#` inside quotes is part of the value.
+    private static func uncommented(_ line: Substring) -> Substring {
+        var quote: Character?
+        for i in line.indices {
+            let c = line[i]
+            if c == quote {
+                quote = nil
+            } else if quote == nil, c == "\"" || c == "'" {
+                quote = c
+            } else if quote == nil, c == "#" {
+                return line[..<i]
+            }
+        }
+        return line
     }
 
     @MainActor static func open() { open(file, creatingWith: defaults) }

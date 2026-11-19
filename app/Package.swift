@@ -6,6 +6,7 @@ let package = Package(
     platforms: [.macOS(.v15)],
     targets: [
         .executableTarget(name: "SloprFlow"),
+        .executableTarget(name: "SloprHUD"),
         .testTarget(name: "SloprFlowTests", dependencies: ["SloprFlow"]),
     ]
 )

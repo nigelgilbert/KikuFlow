@@ -65,6 +65,10 @@ port = 48123
 [hotkey]
 key = "right_option"   # hold to talk; or "fn", "left_option", "left_command",
 # "right_command", "left_control", "right_control"
+
+[hud]
+# renderer = ""   # a command run in this folder that gets the HUD states on its input;
+# empty means the pill that comes with the app
 ```
 
 Quit and reopen the app after editing it. The menu's first line names the key in use; a name
@@ -114,6 +118,28 @@ the text is pasted also shows in the HUD, and nothing is pasted. The app always 
 Hooks are plain Python functions that change the text after each step of a dictation, or the
 message of a failure. Put hook files in `hooks/` in this repo; see
 [examples/README.md](examples/README.md).
+
+## Your own HUD
+
+The HUD is a program that gets one line on its standard input for each state:
+
+```
+hidden
+listening 0.42     the mic level, 0.00 to 1.00, many times a second
+thinking
+warning <text>     the message, on one line
+```
+
+`[hud] renderer` names a command of yours, such as `"python3 hud.py"`. It runs through
+`/bin/sh` in `~/Library/Application Support/SloprFlow/`, so `hud.py` sits beside the config.
+It gets the app's short `PATH`, so give the full path of a tool outside `/usr/bin`. It starts
+with the app and should end when its input closes, and ignore a line it doesn't know. If it
+can't start or it exits, the app warns "The HUD renderer stopped" and uses its own pill until
+you quit and reopen it. Empty or missing means that pill. Quit and reopen the app after
+changing `renderer`.
+
+[examples/hud.py](examples/hud.py) speaks each warning and shows nothing else. The pill that
+comes with the app, `app/Sources/SloprHUD/`, is the example of a drawn one.
 
 ## Licenses and attributions
 

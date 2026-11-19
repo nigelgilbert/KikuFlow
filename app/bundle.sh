@@ -1,12 +1,14 @@
 #!/bin/sh
-# Build "Slopr Flow.app" into app/build/, with scripts/ and sidecar/ side by side in Resources.
+# Build "Slopr Flow.app" into app/build/, with SloprHUD beside SloprFlow in MacOS, and scripts/ and
+# sidecar/ side by side in Resources.
 set -eu
 cd "$(dirname "$0")"
 swift build -c release
 app="build/Slopr Flow.app"
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-cp "$(swift build -c release --show-bin-path)/SloprFlow" "$app/Contents/MacOS/"
+bin="$(swift build -c release --show-bin-path)"
+cp "$bin/SloprFlow" "$bin/SloprHUD" "$app/Contents/MacOS/"
 rsync -a --exclude .venv --exclude __pycache__ --exclude '.*_cache' --exclude tests \
     ../scripts ../sidecar "$app/Contents/Resources/"
 cat > "$app/Contents/Info.plist" <<EOF
@@ -30,6 +32,7 @@ EOF
 # across rebuilds; an ad-hoc signature changes with every build, so the grant is lost each time.
 identity="Slopr Flow Dev"
 security find-certificate -c "$identity" >/dev/null 2>&1 || identity=-
+codesign --force --sign "$identity" "$app/Contents/MacOS/SloprHUD"
 codesign --force --sign "$identity" "$app"
 # The sidecar reads hook files from Application Support; link that to hooks/ in this repo.
 support="$HOME/Library/Application Support/SloprFlow"
