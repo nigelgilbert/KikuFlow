@@ -1,109 +1,95 @@
-import AppKit
-import SwiftUI
+import Foundation
 
 enum HUDState: Equatable {
     case hidden
     case listening(level: Float)  // 0...1, the newest mic level
     case thinking
     case warning(String)
+
+    /// What a renderer program gets on its input, without the newline.
+    var line: String {
+        switch self {
+        case .hidden: "hidden"
+        case .listening(let level): "listening " + String(format: "%.2f", min(max(level, 0), 1))
+        case .thinking: "thinking"
+        case .warning(let text):
+            // Under PIPE_BUF (512 bytes), so a non-blocking write takes the whole line or none of it.
+            "warning " + String(text.unicodeScalars.prefix(120))
+                .split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).joined(separator: " ")
+        }
+    }
 }
 
-@MainActor protocol Renderer { func render(_ state: HUDState) }
+/// The HUD program: the user's command from the config, or SloprHUD beside the app's executable.
+/// It gets one line per state on its input and ends when that closes.
+@MainActor final class Renderer {
+    /// Called when the user's command could not start or exited, and SloprHUD took its place.
+    var onStop: () -> Void = {}
 
-@MainActor final class BuiltinRenderer: Renderer {
-    @MainActor @Observable fileprivate final class Model {
-        enum Phase { case listening, thinking, warning(String) }
-        var phase = Phase.listening
-        var levels = [Float](repeating: 0, count: 32)
-        var width: CGFloat = 185  // of the listening pill: the notch's, or its usual width without one
-        var nudge: CGFloat = 0
-    }
+    private var command = Config.renderer  // nil once it has stopped: it is not tried again until a restart
+    private var process: Process?
+    private var input: FileHandle?
+    private var launched = Date.distantPast
 
-    private let model = Model()
-    private let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 480, height: 120),
-                                styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
-    private var state = HUDState.hidden
-
-    init() {
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false
-        panel.ignoresMouseEvents = true
-        panel.level = .statusBar
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        let host = NSHostingView(rootView: HUDView(model: model))
-        host.sizingOptions = []  // keep the panel's size; the pill sizes itself inside it
-        panel.contentView = host
+    func start() {
+        signal(SIGPIPE, SIG_IGN)  // so writing to a program that has gone fails instead of killing the app
+        launch()
     }
 
     func render(_ state: HUDState) {
-        let previous = self.state
-        self.state = state
-        switch state {
-        case .hidden:
-            panel.orderOut(nil)
-        case .listening(let level):
-            if case .listening = previous {} else {
-                model.levels = model.levels.map { _ in 0 }
-                show(.listening)
-            }
-            model.levels.removeFirst()
-            model.levels.append(level)
-        case .thinking:
-            show(.thinking)
-        case .warning(let message):
-            show(.warning(message))
-        }
+        // A SloprHUD that won't start is tried once a second, not on every level.
+        if command == nil, process?.isRunning != true, Date.now.timeIntervalSince(launched) > 1 { launch() }
+        write(state.line)
     }
 
-    private func show(_ phase: Model.Phase) {
-        model.phase = phase
-        if let screen = NSScreen.main {
-            let visible = screen.visibleFrame
-            var midX = visible.midX
-            model.width = 185
-            // The notch is the gap between the two menu bar areas beside it, and isn't quite centred.
-            if let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea {
-                model.width = screen.frame.width - left.width - right.width
-                midX = screen.frame.minX + left.width + model.width / 2
-            }
-            panel.setFrameOrigin(NSPoint(x: midX - panel.frame.width / 2,
-                                         y: visible.maxY - panel.frame.height - 8))
-            model.nudge = midX - panel.frame.midX  // a window's frame lands on whole points
-        }
-        panel.orderFrontRegardless()
+    func stop() {
+        try? input?.close()
+        process?.terminate()  // for a program that doesn't end when its input closes
+        input = nil
+        process = nil
     }
-}
 
-private struct HUDView: View {
-    let model: BuiltinRenderer.Model
-    private let bar: CGFloat = 3, gap: CGFloat = 3, padding: CGFloat = 16
-
-    var body: some View {
-        Group {
-            switch model.phase {
-            case .listening:
-                let width = model.width - 2 * padding
-                let bars = model.levels.suffix(max(0, Int((width + gap) / (bar + gap))))
-                HStack(spacing: gap) {
-                    ForEach(bars.indices, id: \.self) { i in
-                        Capsule().frame(width: bar, height: 3 + CGFloat(bars[i]) * 21)
-                    }
-                }
-                .frame(width: width, height: 24)
-                .animation(.linear(duration: 0.08), value: model.levels)
-            case .thinking:
-                ProgressView().controlSize(.small).frame(height: 24)
-            case .warning(let message):
-                Text(message).lineLimit(3).multilineTextAlignment(.center)
-            }
+    private func launch() {
+        launched = .now
+        let process = Process()
+        if let command {
+            process.executableURL = URL(filePath: "/bin/sh")
+            process.arguments = ["-c", command]
+            process.currentDirectoryURL = Config.dir
+        } else {
+            process.executableURL = Bundle.main.executableURL!.deletingLastPathComponent().appending(path: "SloprHUD")
         }
-        .padding(.horizontal, padding)
-        .padding(.vertical, 10)
-        .background(.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 18))
-        .foregroundStyle(.white)
-        .environment(\.colorScheme, .dark)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .offset(x: model.nudge)
+        let pipe = Pipe()
+        process.standardInput = pipe
+        let id = ObjectIdentifier(process)
+        process.terminationHandler = { [weak self] _ in Task { @MainActor in self?.exited(id) } }
+        try? input?.close()
+        do {
+            try process.run()
+        } catch {
+            (self.process, input) = (nil, nil)
+            if command != nil { fallBack() }
+            return
+        }
+        try? pipe.fileHandleForReading.close()
+        let fd = pipe.fileHandleForWriting.fileDescriptor
+        _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)  // a program that stops reading loses lines, not the app
+        (self.process, input) = (process, pipe.fileHandleForWriting)
+    }
+
+    private func exited(_ id: ObjectIdentifier) {
+        guard command != nil, id == process.map(ObjectIdentifier.init) else { return }
+        fallBack()
+    }
+
+    private func fallBack() {
+        command = nil
+        launch()
+        onStop()
+    }
+
+    private func write(_ line: String) {
+        guard let input else { return }
+        _ = Array((line + "\n").utf8).withUnsafeBytes { Darwin.write(input.fileDescriptor, $0.baseAddress, $0.count) }
     }
 }

@@ -20,3 +20,15 @@ import Testing
     #expect(Config.hotkey(in: "") == .rightOption)
     #expect(Config.hotkey(in: "[hotkey]\nkey = \"caps_lock\"\n") == .rightOption)
 }
+
+@Test func rendererReadsHUDSection() {
+    #expect(Config.renderer(in: "[hud]\nrenderer = \"python3 hud.py\"\n") == "python3 hud.py")
+    #expect(Config.renderer(in: "[hud]\nrenderer = \"say 'done'\"\n") == "say 'done'")
+    #expect(Config.renderer(in: "[hud]\nrenderer = \"hud --color '#fff'\"  # mine\n") == "hud --color '#fff'")
+}
+
+@Test func rendererIsNilWhenMissingOrEmpty() {
+    #expect(Config.renderer(in: "") == nil)
+    #expect(Config.renderer(in: Config.defaults) == nil)
+    #expect(Config.renderer(in: "[hud]\nrenderer = \"\"\n") == nil)
+}
