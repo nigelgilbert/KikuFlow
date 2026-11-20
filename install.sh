@@ -38,18 +38,13 @@ main() {
 
     # The app would download these at its first launch, without a progress bar.
     say "Downloading the models, several GB"
-    if models="$("$support/venv/bin/python" -I -c '
+    "$support/venv/bin/python" -I -c '
 from kiku_sidecar.config import load_config
 c = load_config()
-print(c.stt_model, c.cleanup_model, sep="\n")')"; then
-        echo "$models" | while read -r model; do
-            [ -e "$model" ] && continue  # a folder on this Mac
-            "$support/venv/bin/hf" download "$model" >/dev/null ||
-                echo "Couldn't download $model. Kiku Flow tries again when it starts." >&2
-        done
-    else
-        echo "Couldn't read config.toml. Kiku Flow shows the error when it starts." >&2
-    fi
+print(c.stt_model, c.cleanup_model, sep="\n")' | while read -r model; do
+        "$support/venv/bin/hf" download "$model" >/dev/null ||
+            echo "Couldn't download $model. Kiku Flow tries again when it starts." >&2
+    done
 
     open "$app"
     cat <<EOF

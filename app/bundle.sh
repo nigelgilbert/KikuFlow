@@ -13,12 +13,7 @@ rsync -a --exclude .venv --exclude __pycache__ --exclude '.*_cache' --exclude te
     ../scripts ../sidecar "$app/Contents/Resources/"
 # The app carries the uv on this machine, so whoever installs the app needs none; bootstrap.sh
 # looks beside itself first.
-PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
-if uv="$(command -v uv)"; then
-    cp "$uv" "$app/Contents/Resources/scripts/uv"
-else
-    echo "uv not found: this build will need uv installed wherever it runs" >&2
-fi
+cp "$(command -v uv)" "$app/Contents/Resources/scripts/uv"
 cat > "$app/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
