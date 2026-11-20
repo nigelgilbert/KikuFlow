@@ -4,8 +4,9 @@
 # so an app update with new sidecar source takes effect.
 set -eu
 
-# Apps launched from Finder get a minimal PATH; look where uv's installers put it.
-PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+# The app bundle carries its own uv beside this script. A build without one uses yours; apps
+# launched from Finder get a minimal PATH, so look where uv's installers put it.
+PATH="$(cd "$(dirname "$0")" && pwd):$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 if ! command -v uv >/dev/null 2>&1; then
     echo "Kiku Flow needs uv. Install it with 'brew install uv' or see https://docs.astral.sh/uv/" >&2
     exit 1

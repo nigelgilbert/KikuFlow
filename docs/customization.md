@@ -7,7 +7,7 @@ Everything lives in the Kiku Flow folder, `~/Library/Application Support/KikuFlo
 | File | What it is |
 | --- | --- |
 | `config.toml` | The settings below |
-| `hooks/` | Your [hook files](hooks.md), linked to `hooks/` in the repo |
+| `hooks/` | Your [hook files](hooks.md) |
 | `log.txt` | Your last 100 dictations |
 | `errors.txt` | The last 50 failures |
 | `sidecar.log` | The speech engine's error output since the app started |
@@ -25,7 +25,7 @@ key = "right_option" # the key you hold to talk
 engine = "parakeet" # or "whisper"
 
 [cleanup]
-model = "ReFyneLabs/simplewords-dictation-cleanup-v3" # or "mlx-community/Qwen3-4B-Instruct-2507-4bit"
+model = "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit" # or "ReFyneLabs/simplewords-dictation-cleanup-v3"
 
 [hud]
 renderer = "" # your custom HUD
@@ -52,13 +52,10 @@ With `key = "fn"`, set System Settings › Keyboard › "Press 🌐 key to" to "
 
 `[cleanup] model` is the model that turns what you said into what you meant. Two come ready to use:
 
-- `ReFyneLabs/simplewords-dictation-cleanup-v3`, the default.
-- `devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit`.
+- `devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit`, the default.
+- `ReFyneLabs/simplewords-dictation-cleanup-v3`.
 
-The default is gated on Hugging Face. Unless you have already accepted its terms and logged in, the first launch stops at a warning triangle, and "Open Errors" says `Access to model … is restricted`. Do one of these, then reload:
-
-- Accept the terms on [the model's page](https://huggingface.co/ReFyneLabs/simplewords-dictation-cleanup-v3) and log in with `~/Library/Application\ Support/KikuFlow/venv/bin/hf auth login`, or `hf auth login` if you have the CLI.
-- Or set `model` to the second one, which isn't gated.
+The second is gated on Hugging Face. Before you set `model` to it, accept the terms on [the model's page](https://huggingface.co/ReFyneLabs/simplewords-dictation-cleanup-v3) and log in with `~/Library/Application\ Support/KikuFlow/venv/bin/hf auth login`, or `hf auth login` if you have the CLI. Without that, the reload stops at a warning triangle, and "Open Errors" says `Access to model … is restricted`.
 
 `HF_TOKEN` works in place of a login only when the app is started from a shell that has it set, which a launch from Finder isn't.
 
@@ -143,7 +140,7 @@ Nothing here is a setting, but it is what the app does:
 - After a paste into a text field, your previous clipboard comes back. When no text field has focus, the text stays on the clipboard for you to paste. Apps that don't report their text fields to Accessibility, some Electron apps among them, count as no text field.
 - The paste sends ⌘ and the key in the V position of a US layout, so on a layout like Dvorak it may not be ⌘V.
 - While a permission is missing, the menu has an item that opens the right System Settings pane.
-- A rebuilt app is a new app to macOS: remove Kiku Flow from the Accessibility list and grant it again. To keep the grant across rebuilds, put a certificate named "Kiku Flow Dev" in your keychain and `app/bundle.sh` signs with it.
+- An update through the install script keeps the Accessibility grant. An app you build yourself is a new app to macOS after every build: remove Kiku Flow from the Accessibility list and grant it again. To keep the grant across builds, make a "Kiku Flow Dev" certificate of your own with [the two `openssl` commands](releasing.md#the-signing-certificate) and open the `kiku.p12` they write, which adds it to your keychain. `app/bundle.sh` then signs with it, and your builds share one grant, apart from the installed app's.
 
 ## The port
 

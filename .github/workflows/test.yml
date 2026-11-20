@@ -1,0 +1,16 @@
+# The Swift and sidecar tests, on every pull request and before a release.
+name: Test
+on:
+  pull_request:
+  workflow_call:
+jobs:
+  test:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Swift tests
+        run: app/test.sh
+      - name: Sidecar tests
+        working-directory: sidecar
+        run: uv run pytest -q
