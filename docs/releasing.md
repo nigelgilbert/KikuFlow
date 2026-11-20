@@ -6,7 +6,7 @@ Pushing a tag publishes a release:
 git tag v0.2.0 && git push origin v0.2.0
 ```
 
-[The workflow](../.github/workflows/release.yml) runs the Swift tests, builds the app with the tag as its version, signs it, and attaches `KikuFlow.zip` to a new GitHub release. [install.sh](../install.sh) always downloads the latest release, so that is the whole rollout.
+[The workflow](../.github/workflows/release.yml) runs the tests, builds the app with the tag as its version, signs it, and attaches `KikuFlow.zip` to a new GitHub release. [install.sh](../install.sh) always downloads the latest release, so that is the whole rollout.
 
 ## The signing certificate
 

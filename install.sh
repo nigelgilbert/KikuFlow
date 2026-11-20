@@ -10,7 +10,8 @@ support="$HOME/Library/Application Support/KikuFlow"
 
 # In a function, so a download cut short runs nothing.
 main() {
-    [ "$(uname -sm)" = "Darwin arm64" ] || fail "Kiku Flow needs an Apple Silicon Mac."
+    # Asks the chip, not the shell: uname says x86_64 in a Terminal that runs under Rosetta.
+    [ "$(sysctl -n hw.optional.arm64 2>/dev/null)" = 1 ] || fail "Kiku Flow needs an Apple Silicon Mac."
     [ "$(sw_vers -productVersion | cut -d. -f1)" -ge 15 ] || fail "Kiku Flow needs macOS 15 or later."
 
     # ~/Applications for an account that can't write to /Applications.
@@ -28,6 +29,8 @@ main() {
     pkill -x KikuFlow 2>/dev/null || true  # a running copy, when this is an update
     rm -rf "$app"
     mv "$tmp/Kiku Flow.app" "$app"
+    # A build from source links hooks to its repo; mkdir fails on the link once that repo is gone.
+    if [ -L "$support/hooks" ] && [ ! -e "$support/hooks" ]; then rm "$support/hooks"; fi
     mkdir -p "$support/hooks"
 
     say "Installing the speech engine"
@@ -35,7 +38,7 @@ main() {
 
     # The app would download these at its first launch, without a progress bar.
     say "Downloading the models, several GB"
-    if models="$("$support/venv/bin/python" -c '
+    if models="$("$support/venv/bin/python" -I -c '
 from kiku_sidecar.config import load_config
 c = load_config()
 print(c.stt_model, c.cleanup_model, sep="\n")')"; then

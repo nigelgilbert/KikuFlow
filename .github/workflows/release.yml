@@ -7,13 +7,14 @@ on:
 permissions:
   contents: write
 jobs:
+  test:
+    uses: ./.github/workflows/test.yml
   release:
+    needs: test
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - name: Test
-        run: app/test.sh
       - name: Import the signing certificate
         env:
           SIGNING_P12: ${{ secrets.SIGNING_P12 }}
@@ -30,10 +31,11 @@ jobs:
           security list-keychains -d user -s "$keychain" login.keychain-db
       - name: Build
         run: KIKU_VERSION="${GITHUB_REF_NAME#v}" app/bundle.sh
-      - name: Check the signature
-        # bundle.sh falls back to an ad-hoc signature, and a release signed that way would cost
-        # every user their Accessibility grant.
+      - name: Check the bundle
+        # bundle.sh carries on without uv, which the installed app can't, and falls back to an
+        # ad-hoc signature, which would cost every user their Accessibility grant.
         run: |
+          test -x "app/build/Kiku Flow.app/Contents/Resources/scripts/uv"
           codesign --verify --deep --strict "app/build/Kiku Flow.app"
           codesign -d -r- "app/build/Kiku Flow.app" 2>&1 | grep 'certificate leaf'
       - name: Publish
