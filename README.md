@@ -22,7 +22,7 @@ Every dictation takes the same short trip, and the stops in brackets are yours:
 mic → transcribe → [on_transcribed] → cleanup → [on_cleaned] → paste → [on_sent] → log → [on_done]
 ```
 
-A hook is a Python function in a file in `hooks/`. It gets the text and returns the text. This one makes every dictation read like a text message, with no capital at the start and no full stop at the end:
+A hook is a Python function in a file in the hooks folder. It gets the text and returns the text. This one makes every dictation read like a text message, with no capital at the start and no full stop at the end:
 
 ```python
 def on_cleaned(t):
@@ -34,7 +34,23 @@ That is the whole plugin system. A hook is plain Python, so it can call a second
 
 ## Quick start
 
-You need an Apple Silicon Mac on macOS 15 or later, Swift 6 (Xcode or the Command Line Tools) and [uv](https://docs.astral.sh/uv/).
+You need an Apple Silicon Mac on macOS 15 or later. Paste this into Terminal:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/nigelgilbert/KikuFlow/main/install.sh | sh
+```
+
+It puts Kiku Flow in Applications, installs its own Python, downloads the models, several GB, and opens the app. Run it again to update.
+
+1. Grant **Accessibility** when asked. The hotkey and the paste need it.
+2. Hold Right Option. The first time, macOS asks for the **Microphone**; allow it and hold again.
+3. Say something and let go.
+
+Install this way and not from a zip in your browser: the app isn't notarized by Apple, so macOS blocks a copy that a browser downloaded.
+
+### Build from source
+
+You need Swift 6 (Xcode or the Command Line Tools) and [uv](https://docs.astral.sh/uv/).
 
 ```sh
 brew install uv
@@ -42,19 +58,14 @@ app/bundle.sh
 open "app/build/Kiku Flow.app"
 ```
 
-The first launch installs its own Python and downloads the models, several GB.
-
-1. Grant **Accessibility** when asked. The hotkey and the paste need it.
-2. Hold Right Option. The first time, macOS asks for the **Microphone**; allow it and hold again.
-3. Say something and let go.
-
-The default cleanup model needs a free Hugging Face login. If the icon turns into a warning triangle, [the cleanup model](docs/customization.md#cleanup) has the two ways past it.
+The first launch installs its own Python and downloads the models. A build from source reads its hooks from `hooks/` in the repo.
 
 ## Make it yours
 
 - [Lifecycle hooks](docs/hooks.md): the pipeline, the hooks and a page of recipes.
 - [Customization](docs/customization.md): the hotkey, the models, your own cleanup prompt, the log, your own HUD, and how the paste behaves.
-- [examples/](examples/): hooks to copy into `hooks/` and talk to.
+- [examples/](examples/): hooks to copy into the hooks folder and talk to.
+- [Releasing](docs/releasing.md): how a release is built and signed.
 
 ## Under the hood
 
@@ -63,5 +74,5 @@ The default cleanup model needs a free Hugging Face login. If the icon turns int
 ## Licenses and attributions
 
 - Speech recognition: [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) by NVIDIA, licensed under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/), used through the MLX conversion `mlx-community/parakeet-tdt-0.6b-v3` and [parakeet-mlx](https://github.com/senstella/parakeet-mlx).
-- Cleanup models: `ReFyneLabs/simplewords-dictation-cleanup-v3` and `devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit`, under the terms on their model pages.
-- Python dependencies (MLX, mlx-lm, mlx-whisper, FastAPI, uvicorn, NumPy) are installed by uv under their own licenses.
+- Cleanup models: `devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit` and `ReFyneLabs/simplewords-dictation-cleanup-v3`, under the terms on their model pages.
+- Python dependencies (MLX, mlx-lm, mlx-whisper, FastAPI, uvicorn, NumPy) are installed by [uv](https://github.com/astral-sh/uv) under their own licenses. The app carries a copy of uv, licensed under Apache-2.0 or MIT.

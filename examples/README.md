@@ -1,6 +1,6 @@
 # Examples
 
-Copy a file into `hooks/`, choose "Reload Kiku Flow" in the menu, and talk.
+Copy a file into the hooks folder, `~/Library/Application Support/KikuFlow/hooks/`, choose "Reload Kiku Flow" in the menu, and talk.
 
 | File | Say | What happens |
 | --- | --- | --- |

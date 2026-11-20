@@ -17,7 +17,7 @@ STT_MODELS = {
 class Config:
     stt_engine: str = "parakeet"
     stt_model: str = STT_MODELS["parakeet"]
-    cleanup_model: str = "ReFyneLabs/simplewords-dictation-cleanup-v3"
+    cleanup_model: str = "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
     cleanup_prompt_file: str = ""
     cleanup_prompt_role: str = ""
 

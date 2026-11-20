@@ -10,7 +10,7 @@ def test_missing_file_gives_defaults(tmp_path: Path):
     assert config == Config(
         stt_engine="parakeet",
         stt_model="mlx-community/parakeet-tdt-0.6b-v3",
-        cleanup_model="ReFyneLabs/simplewords-dictation-cleanup-v3",
+        cleanup_model="devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit",
         cleanup_prompt_file="",
         cleanup_prompt_role="",
     )
