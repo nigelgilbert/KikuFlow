@@ -32,7 +32,7 @@ cat > "$app/Contents/Info.plist" <<EOF
 </dict>
 </plist>
 EOF
-# Signed with a "Kiku Flow Dev" certificate from the keychain, macOS keeps the Accessibility grant
+# Signed with a "Kiku Flow Dev" certificate from the keychain (dev-cert.sh makes one), macOS keeps the Accessibility grant
 # across builds; an ad-hoc signature changes with every build, so the grant is lost each time.
 # Releases are signed with one such certificate (docs/releasing.md), so the grant survives updates.
 identity="Kiku Flow Dev"
