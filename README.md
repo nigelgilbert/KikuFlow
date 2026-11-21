@@ -60,6 +60,8 @@ open "app/build/Kiku Flow.app"
 
 The first launch installs its own Python and downloads the models. A build from source reads its hooks from `hooks/` in the repo.
 
+To update, `git pull`, quit Kiku Flow and run the last two lines again. macOS takes each build for a new app and asks for Accessibility again, unless you [sign your builds](docs/customization.md#paste-and-permissions).
+
 ## Make it yours
 
 - [Lifecycle hooks](docs/hooks.md): the pipeline, the hooks and a page of recipes.

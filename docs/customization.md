@@ -140,7 +140,7 @@ Nothing here is a setting, but it is what the app does:
 - After a paste into a text field, your previous clipboard comes back. When no text field has focus, the text stays on the clipboard for you to paste. Apps that don't report their text fields to Accessibility, some Electron apps among them, count as no text field.
 - The paste sends ⌘ and the key in the V position of a US layout, so on a layout like Dvorak it may not be ⌘V.
 - While a permission is missing, the menu has an item that opens the right System Settings pane.
-- An update through the install script keeps the Accessibility grant. An app you build yourself is a new app to macOS after every build: remove Kiku Flow from the Accessibility list and grant it again. To keep the grant across builds, make a "Kiku Flow Dev" certificate of your own with [the two `openssl` commands](releasing.md#the-signing-certificate) and open the `kiku.p12` they write, which adds it to your keychain. `app/bundle.sh` then signs with it, and your builds share one grant, apart from the installed app's.
+- An update through the install script keeps the Accessibility grant. An app you build yourself is a new app to macOS after every build: remove Kiku Flow from the Accessibility list and grant it again. To keep the grant across builds, make a "Kiku Flow Dev" certificate of your own with the two `openssl` commands and the `security import` in [Releasing](releasing.md#the-signing-certificate). `app/bundle.sh` then signs with it, and your builds share one grant, apart from the installed app's.
 
 ## The port
 
