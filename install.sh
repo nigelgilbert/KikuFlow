@@ -51,7 +51,7 @@ print(c.stt_model, c.cleanup_model, sep="\n")' | while read -r model; do
 
 Kiku Flow is in $apps and running in the menu bar.
 1. Grant Accessibility when asked. The hotkey and the paste need it.
-2. Hold Right Option. The first time, macOS asks for the Microphone; allow it and hold again.
+2. Hold Right Option, or the hotkey in your config. The first time, macOS asks for the Microphone; allow it and hold again.
 3. Say something and let go.
 EOF
 }
