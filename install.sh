@@ -38,6 +38,8 @@ main() {
 
     # The app would download these at its first launch, without a progress bar.
     say "Downloading the models, several GB"
+    # The app is opened without the shell's variables and reads the default cache, so fill that one.
+    unset HF_HOME HF_HUB_CACHE XDG_CACHE_HOME
     "$support/venv/bin/python" -I -c '
 from kiku_sidecar.config import load_config
 c = load_config()

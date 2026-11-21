@@ -20,7 +20,7 @@ def on_cleaned(t):
 
 Choose "Reload Kiku Flow" in the menu and dictate something. EVERYTHING YOU SAY IS NOW PASTED LIKE THIS. Delete the file and reload when the joke wears off.
 
-Kiku Flow loads every `*.py` file in that folder. A build from source links the folder to `hooks/` in the repo. It looks in each file for the five names below. The rest of the file is yours: imports, constants, helpers. Reload after every edit.
+Kiku Flow loads every `*.py` file in that folder. A build from source links the folder to `hooks/` in the repo, unless the folder is already there, as after an install. It looks in each file for the five names below. The rest of the file is yours: imports, constants, helpers. Reload after every edit.
 
 ## The five hooks
 

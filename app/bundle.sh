@@ -46,5 +46,7 @@ support="$HOME/Library/Application Support/KikuFlow"
 mkdir -p "$support"
 if [ -L "$support/hooks" ] || [ ! -e "$support/hooks" ]; then
     ln -sfn "$(cd ../hooks && pwd)" "$support/hooks"
+else
+    echo "Hooks stay in $support/hooks, not hooks/ in this repo: the folder was already there." >&2
 fi
 echo "$PWD/$app"
