@@ -15,7 +15,7 @@ enum Config {
         engine = "parakeet"
 
         [cleanup]
-        model = "ReFyneLabs/simplewords-dictation-cleanup-v3"
+        model = "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit"
 
         [hud]
         renderer = ""

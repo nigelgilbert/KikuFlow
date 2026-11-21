@@ -124,7 +124,7 @@ def test_health_answers_while_loading_then_reports_models(
         "error": None,
         "stt_engine": "parakeet",
         "stt_model": "mlx-community/parakeet-tdt-0.6b-v3",
-        "cleanup_model": "ReFyneLabs/simplewords-dictation-cleanup-v3",
+        "cleanup_model": "devadathanmb/utter-dictation-cleanup-qwen3-1.7b-mlx-6bit",
     }
     assert errors(tmp_path) == []
 
