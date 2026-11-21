@@ -27,7 +27,8 @@ A hook is a Python function in a file in the hooks folder. It gets the text and 
 ```python
 def on_cleaned(t):
     t = t.removesuffix(".")
-    return t[:1].lower() + t[1:]
+    first, rest = t[:1], t[1:]
+    return first.lower() + rest
 ```
 
 That is the whole plugin system. A hook is plain Python, so it can call a second model or drive your Mac. The ones in [examples/](examples/) translate what you say, answer your questions and run commands by voice.
