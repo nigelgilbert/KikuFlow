@@ -210,7 +210,7 @@ def on_cleaned(t):
 def on_error(e):
     if isinstance(getattr(e, "reason", e), ConnectionError):
         return ""
-    return str(e)
+    return f"{e.__notes__[-1]}: {type(e).__name__}: {e}"
 ```
 
 Two failures never reach `on_error`: the models or a hook file failing to load, and the engine crashing. Both go in `errors.txt`, a run of crashes once.
