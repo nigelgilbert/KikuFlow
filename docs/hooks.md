@@ -29,15 +29,14 @@ Kiku Flow loads every `*.py` file in that folder. A build from source links the 
 | `on_transcribed(t)` | after speech recognition | what you said | the text the cleanup model sees |
 | `on_cleaned(t)` | after the cleanup model | the cleaned text | the text that is pasted |
 | `on_sent(t)` | once the text has gone off to be pasted | the pasted text | the log entry |
-| `on_done(t)` | after the log entry is written | the log entry | nothing; the return is ignored |
+| `on_done(t)` | after the log entry is written | the log entry | nothing; it returns the text, which is ignored |
 | `on_error(e)` | after a failure | the exception | the message shown and kept |
 
 The first three are the text hooks, and a return from one means:
 
 | Return | Effect |
 | --- | --- |
-| a string | It replaces the text. |
-| `None`, or no return at all | The text stays as it was. |
+| a string | It replaces the text. `return t` leaves it as it was. |
 | `""` | The dictation stops there. |
 | anything else | A `TypeError`, treated like any other [failure](#when-a-hook-fails). |
 
@@ -99,12 +98,14 @@ raw = ""
 def on_transcribed(t):
     global raw
     raw = t
+    return t
 
 
 def on_cleaned(t):
     first, _, rest = raw.partition(" ")
     if first.strip(",.").lower() == "verbatim":
         return rest
+    return t
 ```
 
 ### Choose what goes in the log
@@ -118,6 +119,7 @@ raw = ""
 def on_transcribed(t):
     global raw
     raw = t
+    return t
 
 
 def on_sent(t):
@@ -143,6 +145,7 @@ import re
 def on_sent(t):
     if re.match(r"private\b", t, re.IGNORECASE):
         return ""
+    return t
 ```
 
 ### Keep your own archive
@@ -159,6 +162,7 @@ ARCHIVE = Path.home() / "Documents/Dictations.txt"
 def on_done(t):
     with ARCHIVE.open("a", encoding="utf-8") as f:
         f.write(f"{datetime.now():%Y-%m-%d %H:%M}  {' '.join(t.split())}\n")
+    return t
 ```
 
 ## When a hook fails
@@ -171,7 +175,7 @@ A hook that raises stops the dictation, and nothing after it runs. The message g
 
 If the failure came before the paste, the HUD shows the message too and nothing is pasted.
 
-So a hook that calls something that can fail should catch its own errors and return `None`, which keeps the dictation. `polish.py` sends the cleaned text to a service of yours and pastes it unpolished when the service doesn't answer.
+So a hook that calls something that can fail should catch its own errors and return the text it was given, which keeps the dictation. `polish.py` sends the cleaned text to a service of yours and pastes it unpolished when the service doesn't answer.
 
 ```python
 import json
@@ -186,7 +190,7 @@ def on_cleaned(t):
         with urllib.request.urlopen(request, timeout=5) as response:
             return json.load(response)["text"]
     except OSError:
-        return None
+        return t
 ```
 
 ## on_error
@@ -196,10 +200,9 @@ def on_cleaned(t):
 | Return | Effect |
 | --- | --- |
 | a string | It is the message, in the HUD and in `errors.txt`. |
-| `None`, or no return at all | The default message is used. |
 | `""` | No message: nothing in the HUD, nothing in `errors.txt`. |
 
-`on_error` hooks run in filename order and the first to return a string decides. One that raises is skipped, and its own failure goes in `errors.txt`.
+`on_error` hooks run in filename order and the first that does not fail decides. One that fails, by raising or by returning anything but a string, is skipped, and its own failure goes in `errors.txt`. With no `on_error` hook, or none that succeeds, the default message is used.
 
 `offline.py` keeps network failures out of `errors.txt`, for a hook that posts somewhere and doesn't catch its own errors. `urllib` wraps the `ConnectionError` in `e.reason`. Before the paste this is a silent failure: nothing is pasted and nothing says why.
 
@@ -207,6 +210,7 @@ def on_cleaned(t):
 def on_error(e):
     if isinstance(getattr(e, "reason", e), ConnectionError):
         return ""
+    return str(e)
 ```
 
 Two failures never reach `on_error`: the models or a hook file failing to load, and the engine crashing. Both go in `errors.txt`, a run of crashes once.
