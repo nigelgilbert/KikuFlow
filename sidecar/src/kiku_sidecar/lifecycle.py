@@ -120,7 +120,8 @@ def fire_error(hooks: Hooks, e: Exception, message: str) -> str:
         if not message:
             break
         try:
-            message = one_line(call("on_error", path, hook, e, message))
+            returned = call("on_error", path, hook, e, message)
+            message = one_line(returned)
         except Exception as failure:
             log.error("on_error hook failed", exc_info=failure)
             write_error(default_message(failure))
