@@ -25,10 +25,21 @@ def record(point, t):
     with Path(__file__).with_name("calls.txt").open("a") as f:
         print(point, t, threading.current_thread().name, logged, sep="|", file=f)
 
-def on_transcribed(t): record("on_transcribed", t)
-def on_cleaned(t): record("on_cleaned", t)
-def on_sent(t): record("on_sent", t)
-def on_done(t): record("on_done", t)
+def on_transcribed(t):
+    record("on_transcribed", t)
+    return t
+
+def on_cleaned(t):
+    record("on_cleaned", t)
+    return t
+
+def on_sent(t):
+    record("on_sent", t)
+    return t
+
+def on_done(t):
+    record("on_done", t)
+    return t
 """
 
 
@@ -202,7 +213,6 @@ def test_hooks_shape_the_text_around_cleanup(
         ["on_sent", "Please call Anna tomorrow.!"],
         ["on_done", "Please call Anna tomorrow.!"],
     ]
-    # The recorder's on_sent returns None, so the text that was sent is logged.
     assert (tmp_path / "log.txt").read_text() == "Please call Anna tomorrow.!"
 
 
@@ -339,7 +349,7 @@ def test_hook_returning_a_wrong_type_before_the_reply_gives_500(
     (hooks / "a.py").write_text("def on_cleaned(t): return {}\n")
     server.start_loading()
     response = client.post("/transcribe", content=SPEECH)
-    detail = "on_cleaned in a.py: TypeError: on_cleaned returned dict, not str or None"
+    detail = "on_cleaned in a.py: TypeError: on_cleaned returned dict, not str"
     assert (response.status_code, response.json()) == (500, {"detail": detail})
     assert [c[0] for c in calls(hooks)] == ["on_transcribed"]
     assert errors(tmp_path) == [detail]
@@ -396,7 +406,7 @@ def test_hook_returning_a_wrong_type_after_the_reply_is_recorded(
     (hooks / "a.py").write_text(f"def {point}(t): return {{}}\n")
     server.start_loading()
     assert client.post("/transcribe", content=SPEECH).status_code == 200
-    message = f"{point} in a.py: TypeError: {point} returned dict, not str or None"
+    message = f"{point} in a.py: TypeError: {point} returned dict, not str"
     assert errors(tmp_path) == [message]
     assert (tmp_path / "log.txt").exists() == (point == "on_done")
     ran = ["on_transcribed", "on_cleaned", *(["on_sent"] if point == "on_done" else [])]
@@ -459,6 +469,7 @@ def test_on_error_can_keep_a_failure_after_the_reply_out_of_errors_txt(
         "def on_error(e):\n"
         "    if isinstance(getattr(e, 'reason', e), ConnectionError):\n"
         "        return ''\n"
+        "    return e\n"
     )
     server.start_loading()
     assert client.post("/transcribe", content=SPEECH).status_code == 200
