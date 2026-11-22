@@ -19,8 +19,8 @@ HOOK_DIR = APP_DIR / "hooks"
 LOG_FILE = APP_DIR / "log.txt"
 ERRORS = APP_DIR / "errors.txt"
 
-# Each hook with the file it was loaded from, for its label. on_error takes the exception.
-type Hooks = dict[str, list[tuple[Path, Callable[[Any], str | None]]]]
+type Hook = Callable[[Any], str | None]
+type Hooks = dict[str, list[tuple[Path, Hook]]]
 
 
 def load_hooks(directory: Path) -> Hooks:
@@ -68,7 +68,7 @@ def default_message(e: Exception) -> str:
     return one_line(": ".join(filter(None, parts)))
 
 
-def call(point: str, path: Path, hook: Callable[[Any], str | None], arg: Any) -> str | None:
+def call(point: str, path: Path, hook: Hook, arg: str | Exception) -> str | None:
     """Call `hook(arg)` and label any failure, including a return that is not str or None."""
     try:
         result = hook(arg)
