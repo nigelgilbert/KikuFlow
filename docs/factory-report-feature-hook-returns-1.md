@@ -9,6 +9,13 @@
 - The plan says to delete the drafts `hook_message_2` and `report_2`. Neither exists in `lifecycle.py`, so there was nothing to delete.
 - The plan says the files in `examples/` need no change. Five of them returned `None` on some paths, so fixing them was added as work item 4.
 
+## Work items
+
+1. **`lifecycle.py` and `server.py`** (`b66f2f9`): `call`, `fire`, `fire_error` and `report` follow the plan's sketch. `Hook` is `Callable[..., str]`. `fire_done` and `hook_message` are deleted. `after_reply` runs `on_done` through `fire`.
+2. **Tests** (`b66f2f9`, with item 1 because the suite cannot pass in between): the plan's test changes and new tests, plus a test that `""` from `on_done` stops the later `on_done` hooks.
+3. **Docs** (`b8a80fd`): `docs/hooks.md` tables, the six recipes and the `on_error` section, and `sidecar/README.md`. One sentence was added to `docs/hooks.md`: `""` from `on_done` stops only the later `on_done` hooks.
+4. **Examples** (`d231ef6`): `ask.py`, `terminal.py`, `translate.py`, `talk_like_a_pirate.py` and `voice_commands.py` return a str on every path. Where a hook returned `None` it now returns the text it was given.
+
 ## Review 1: trimmed list (`6b942e3..d231ef6`)
 
 ### Fix
@@ -50,3 +57,26 @@ None.
 ### Counts
 
 8 candidates, 3 kept (0 fix, 3 nit). Adversary: sol. One exchange, covering four candidates; sol backed the filter agent's verdict on all four.
+
+## Fix pass 1
+
+The implementer folded in all three nits with no pushback.
+
+1. `f9c7e83`: both docstrings in `examples/terminal.py` say "terminal".
+2. `0b8d1cc`: `fire_error` names the hook's return before passing it to `one_line`.
+3. `bd71806`: the `on_done` test also asserts status 200, the log entry and an empty errors.txt.
+
+## Open items
+
+- **Release notes.** Both breaks need to go in the next GitHub release: a text hook that returns nothing now fails the dictation (fix: `return t`), and an `on_error(e)` hook is skipped and recorded until it becomes `on_error(e, message)` and returns `message`.
+- **`raise e` inside an `on_error` hook** adds an `on_error in <file>` note to the original exception, so a later `on_error` hook reads that as the last note. Left as it was before this branch.
+- **Whitespace-only text** stops `after_reply` but not `fire` or `process`. Left as it was before this branch.
+- `docs/hook-returns-plan.md` is untracked in the worktree and was not committed.
+
+## Checks
+
+Run in `sidecar/` at `bd71806`:
+
+- `uv run python -m pytest -q`: 107 passed (99 at the base).
+- `uv run python -m pyright`: 0 errors.
+- `uv run ruff check`: all checks passed.
