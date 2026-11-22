@@ -70,11 +70,12 @@ def prepend(path: Path, text: str, keep: int) -> None:
 
 
 def write_log(text: str) -> None:
+    """Add `text` to log.txt."""
     prepend(LOG_FILE, text, 100)
 
 
 def write_error(message: str) -> None:
-    """Add `message` to errors.txt with the time in front; a failed write only goes to stderr."""
+    """Add `message` to errors.txt with the time in front. A failed write only goes to stderr."""
     try:
         prepend(ERRORS, f"{datetime.now():%Y-%m-%d %H:%M} {message}", 50)
     except Exception:
@@ -106,7 +107,7 @@ def call(point: str, path: Path, hook: Hook, arg: str | Exception) -> str | None
 
 
 def fire(hooks: Hooks, point: str, text: str) -> str:
-    """Run the hooks for `point` in order while there is text; a returned str replaces it."""
+    """Run the hooks for `point` in order while there is text. A returned str replaces it."""
     for path, hook in hooks[point]:
         if not text:
             break
@@ -117,13 +118,13 @@ def fire(hooks: Hooks, point: str, text: str) -> str:
 
 
 def fire_done(hooks: Hooks, text: str) -> None:
-    """Run every on_done hook with `text`; what a hook returns changes nothing."""
+    """Run every on_done hook with `text`. What a hook returns changes nothing."""
     for path, hook in hooks["on_done"]:
         call("on_done", path, hook, text)
 
 
 def hook_message(hooks: Hooks, e: Exception) -> str | None:
-    """The first str an on_error hook returns for `e`; a hook that fails is recorded and skipped."""
+    """Return the first str from an on_error hook for `e`. A failed hook is recorded and skipped."""
     for path, hook in hooks["on_error"]:
         try:
             message = call("on_error", path, hook, e)
