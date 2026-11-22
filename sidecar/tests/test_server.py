@@ -24,11 +24,12 @@ def record(point, t):
     logged = Path(__file__).parents[1].joinpath("log.txt").exists()
     with Path(__file__).with_name("calls.txt").open("a") as f:
         print(point, t, threading.current_thread().name, logged, sep="|", file=f)
+    return t
 
-def on_transcribed(t): record("on_transcribed", t)
-def on_cleaned(t): record("on_cleaned", t)
-def on_sent(t): record("on_sent", t)
-def on_done(t): record("on_done", t)
+def on_transcribed(t): return record("on_transcribed", t)
+def on_cleaned(t): return record("on_cleaned", t)
+def on_sent(t): return record("on_sent", t)
+def on_done(t): return record("on_done", t)
 """
 
 
@@ -202,7 +203,6 @@ def test_hooks_shape_the_text_around_cleanup(
         ["on_sent", "Please call Anna tomorrow.!"],
         ["on_done", "Please call Anna tomorrow.!"],
     ]
-    # The recorder's on_sent returns None, so the text that was sent is logged.
     assert (tmp_path / "log.txt").read_text() == "Please call Anna tomorrow.!"
 
 
@@ -339,7 +339,7 @@ def test_hook_returning_a_wrong_type_before_the_reply_gives_500(
     (hooks / "a.py").write_text("def on_cleaned(t): return {}\n")
     server.start_loading()
     response = client.post("/transcribe", content=SPEECH)
-    detail = "on_cleaned in a.py: TypeError: on_cleaned returned dict, not str or None"
+    detail = "on_cleaned in a.py: TypeError: on_cleaned returned dict, not str"
     assert (response.status_code, response.json()) == (500, {"detail": detail})
     assert [c[0] for c in calls(hooks)] == ["on_transcribed"]
     assert errors(tmp_path) == [detail]
@@ -396,14 +396,14 @@ def test_hook_returning_a_wrong_type_after_the_reply_is_recorded(
     (hooks / "a.py").write_text(f"def {point}(t): return {{}}\n")
     server.start_loading()
     assert client.post("/transcribe", content=SPEECH).status_code == 200
-    message = f"{point} in a.py: TypeError: {point} returned dict, not str or None"
+    message = f"{point} in a.py: TypeError: {point} returned dict, not str"
     assert errors(tmp_path) == [message]
     assert (tmp_path / "log.txt").exists() == (point == "on_done")
     ran = ["on_transcribed", "on_cleaned", *(["on_sent"] if point == "on_done" else [])]
     assert [c[0] for c in calls(hooks)] == ran
 
 
-def test_on_done_returning_a_string_changes_nothing(
+def test_on_done_passes_its_return_to_the_next_on_done(
     hooks: Path, tmp_path: Path, client: TestClient
 ):
     (hooks / "a.py").write_text("def on_done(t): return 'other'\n")
@@ -411,13 +411,31 @@ def test_on_done_returning_a_string_changes_nothing(
     assert client.post("/transcribe", content=SPEECH).status_code == 200
     assert errors(tmp_path) == []
     assert (tmp_path / "log.txt").read_text() == "We should meet on Friday."
+    assert calls(hooks)[-1][:2] == ["on_done", "other"]
+
+
+def test_on_done_returning_empty_stops_the_later_on_done(hooks: Path, client: TestClient):
+    (hooks / "a.py").write_text("def on_done(t): return ''\n")
+    server.start_loading()
+    client.post("/transcribe", content=SPEECH)
+    assert calls(hooks)[-1][0] == "on_sent"
+
+
+def test_hook_with_no_return_fails_the_dictation(hooks: Path, tmp_path: Path, client: TestClient):
+    (hooks / "a.py").write_text("def on_cleaned(t):\n    t.upper()\n")
+    server.start_loading()
+    response = client.post("/transcribe", content=SPEECH)
+    detail = "on_cleaned in a.py: TypeError: on_cleaned returned NoneType, not str"
+    assert (response.status_code, response.json()) == (500, {"detail": detail})
+    assert errors(tmp_path) == [detail]
 
 
 def test_on_error_returning_empty_gives_500_with_empty_detail(
     hooks: Path, tmp_path: Path, client: TestClient
 ):
     (hooks / "a.py").write_text(
-        "def on_transcribed(t):\n    raise ValueError('no')\n\ndef on_error(e):\n    return ''\n"
+        "def on_transcribed(t):\n    raise ValueError('no')\n\n"
+        "def on_error(e, message):\n    return ''\n"
     )
     server.start_loading()
     response = client.post("/transcribe", content=SPEECH)
@@ -428,7 +446,7 @@ def test_on_error_returning_empty_gives_500_with_empty_detail(
 def test_on_error_message_is_the_detail(hooks: Path, tmp_path: Path, client: TestClient):
     (hooks / "a.py").write_text(
         "def on_transcribed(t):\n    raise ValueError('no')\n\n"
-        "def on_error(e):\n    return f'Oops,\\n{e}'\n"
+        "def on_error(e, message):\n    return f'Oops,\\n{e}'\n"
     )
     server.start_loading()
     assert client.post("/transcribe", content=SPEECH).json() == {"detail": "Oops, no"}
@@ -436,7 +454,7 @@ def test_on_error_message_is_the_detail(hooks: Path, tmp_path: Path, client: Tes
 
 
 def test_503_while_models_are_not_loaded_is_left_alone(fakes: Fakes, hooks: Path, tmp_path: Path):
-    (hooks / "a.py").write_text("def on_error(e):\n    return 'from on_error'\n")
+    (hooks / "a.py").write_text("def on_error(e, message):\n    return 'from on_error'\n")
     fakes.config = Config(stt_engine="vosk")
     with TestClient(server.app) as client:
         wait_for_load()
@@ -456,9 +474,10 @@ def test_on_error_can_keep_a_failure_after_the_reply_out_of_errors_txt(
         "def on_done(t):\n    raise urllib.error.URLError(ConnectionRefusedError())\n"
     )
     (hooks / "offline.py").write_text(
-        "def on_error(e):\n"
+        "def on_error(e, message):\n"
         "    if isinstance(getattr(e, 'reason', e), ConnectionError):\n"
         "        return ''\n"
+        "    return message\n"
     )
     server.start_loading()
     assert client.post("/transcribe", content=SPEECH).status_code == 200

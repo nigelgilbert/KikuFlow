@@ -7,7 +7,6 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from .config import APP_DIR
 
@@ -18,7 +17,7 @@ HOOK_DIR = APP_DIR / "hooks"
 LOG_FILE = APP_DIR / "log.txt"
 ERRORS = APP_DIR / "errors.txt"
 
-type Hook = Callable[[Any], str | None]
+type Hook = Callable[..., str]
 type Hooks = dict[str, list[tuple[Path, Hook]]]
 
 
@@ -94,12 +93,12 @@ def load_hooks(directory: Path) -> Hooks:
     return hooks
 
 
-def call(point: str, path: Path, hook: Hook, arg: str | Exception) -> str | None:
-    """Call `hook(arg)` and label any failure, including a return that is not str or None."""
+def call(point: str, path: Path, hook: Hook, *args: str | Exception) -> str:
+    """Call `hook(*args)` and label any failure, including a return that is not a str."""
     try:
-        result = hook(arg)
-        if result is not None and not isinstance(result, str):
-            raise TypeError(f"{point} returned {type(result).__name__}, not str or None")
+        result = hook(*args)
+        if not isinstance(result, str):
+            raise TypeError(f"{point} returned {type(result).__name__}, not str")
     except Exception as e:
         e.add_note(hook_label(point, path, e))
         raise
@@ -107,43 +106,31 @@ def call(point: str, path: Path, hook: Hook, arg: str | Exception) -> str | None
 
 
 def fire(hooks: Hooks, point: str, text: str) -> str:
-    """Run the hooks for `point` in order while there is text. A returned str replaces it."""
+    """Pipe `text` through the hooks for `point` in order, while there is text."""
     for path, hook in hooks[point]:
         if not text:
             break
-        next_text = call(point, path, hook, text)
-        if next_text is not None:
-            text = next_text
+        text = call(point, path, hook, text)
     return text
 
 
-def fire_done(hooks: Hooks, text: str) -> None:
-    """Run every on_done hook with `text`. What a hook returns changes nothing."""
-    for path, hook in hooks["on_done"]:
-        call("on_done", path, hook, text)
-
-
-def hook_message(hooks: Hooks, e: Exception) -> str | None:
-    """Return the first str from an on_error hook for `e`. A failed hook is recorded and skipped."""
+def fire_error(hooks: Hooks, e: Exception, message: str) -> str:
+    """Pipe `message` through the on_error hooks. A failed hook is recorded and skipped."""
     for path, hook in hooks["on_error"]:
+        if not message:
+            break
         try:
-            message = call("on_error", path, hook, e)
+            message = one_line(call("on_error", path, hook, e, message))
         except Exception as failure:
             log.error("on_error hook failed", exc_info=failure)
             write_error(default_message(failure))
-            continue
-        if message is not None:
-            return one_line(message)
-    return None
+    return message
 
 
 def report(hooks: Hooks, e: Exception) -> str:
     """Write the message for `e` to errors.txt, unless it is empty, and return it."""
     log.error("dictation failed", exc_info=e)
-    default = default_message(e)
-    message = hook_message(hooks, e)
-    if message is None:
-        message = default
+    message = fire_error(hooks, e, default_message(e))
     if message:
         write_error(message)
     return message
