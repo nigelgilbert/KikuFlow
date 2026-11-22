@@ -85,10 +85,16 @@ def fire(hooks: Hooks, point: str, text: str) -> str:
     for path, hook in hooks[point]:
         if not text:
             break
-        replacement = call(point, path, hook, text)
-        if point != "on_done" and replacement is not None:  # a str from on_done changes nothing
-            text = replacement
+        next_text = call(point, path, hook, text)
+        if next_text is not None:
+            text = next_text
     return text
+
+
+def fire_done(hooks: Hooks, text: str) -> None:
+    """Run every on_done hook with `text`; what a hook returns changes nothing."""
+    for path, hook in hooks["on_done"]:
+        call("on_done", path, hook, text)
 
 
 def hook_message(hooks: Hooks, e: Exception) -> str | None:

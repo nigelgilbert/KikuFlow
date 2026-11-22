@@ -24,6 +24,7 @@ from .lifecycle import (
     Hooks,
     default_message,
     fire,
+    fire_done,
     labelled,
     load_hooks,
     report,
@@ -144,7 +145,7 @@ def after_reply(hooks: Hooks, text: str) -> None:
             return
         with labelled("log write"):
             write_log(text)
-        fire(hooks, "on_done", text)
+        fire_done(hooks, text)
     except Exception as e:
         report(hooks, e)
 

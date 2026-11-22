@@ -7,6 +7,7 @@ from kiku_sidecar.lifecycle import (
     POINTS,
     default_message,
     fire,
+    fire_done,
     labelled,
     load_hooks,
     report,
@@ -70,7 +71,7 @@ def test_hook_file_keeps_state_between_its_hooks(tmp_path: Path):
 def test_on_done_return_values_are_ignored():
     calls = []
     hooks = {"on_done": [(HERE, lambda t: ""), (HERE, calls.append)]}
-    fire(hooks, "on_done", "hello")
+    fire_done(hooks, "hello")
     assert calls == ["hello"]
 
 
