@@ -11,8 +11,7 @@ from typing import Any
 
 from .config import APP_DIR
 
-# uvicorn's logger, not __name__, so that errors go to stderr in uvicorn's format.
-log = logging.getLogger("uvicorn.error")
+log = logging.getLogger(__name__)
 
 POINTS = ("on_transcribed", "on_cleaned", "on_sent", "on_done")
 HOOK_DIR = APP_DIR / "hooks"

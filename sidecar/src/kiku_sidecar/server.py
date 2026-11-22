@@ -33,8 +33,7 @@ from .lifecycle import (
 )
 from .stt import SAMPLE_RATE, Transcriber, decode_audio, load_transcriber
 
-# uvicorn's logger, not __name__, so that errors go to stderr in uvicorn's format.
-log = logging.getLogger("uvicorn.error")
+log = logging.getLogger(__name__)
 
 # All model work (loading and inference) runs on this one thread, one job at a time.
 executor = ThreadPoolExecutor(max_workers=1)
@@ -175,5 +174,6 @@ def exit_when_orphaned() -> None:
 
 
 def main() -> None:
+    logging.basicConfig()
     threading.Thread(target=exit_when_orphaned, daemon=True).start()
     uvicorn.run(app, host="127.0.0.1", port=int(sys.argv[1]))
