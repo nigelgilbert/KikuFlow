@@ -18,4 +18,4 @@ def on_cleaned(t):
         tokenize=False,
     )
     max_tokens = 4 * len(tokenizer.encode(t)) + 64
-    return generate(model, tokenizer, chat, max_tokens=max_tokens).strip() or None
+    return generate(model, tokenizer, chat, max_tokens=max_tokens).strip() or t

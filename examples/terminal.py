@@ -20,15 +20,15 @@ def on_transcribed(t):
     global wanted
     said = PREFIX.match(t)
     wanted = bool(said)
-    return said and said[1]
+    return said[1] if said else t
 
 
 def on_cleaned(t):
     if not wanted:
-        return None
+        return t
     chat = tokenizer.apply_chat_template(
         [{"role": "system", "content": PROMPT}, {"role": "user", "content": t}],
         add_generation_prompt=True,
         tokenize=False,
     )
-    return generate(model, tokenizer, chat, max_tokens=128).strip() or None
+    return generate(model, tokenizer, chat, max_tokens=128).strip() or t
