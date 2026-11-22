@@ -3,7 +3,8 @@
 import logging
 import runpy
 import traceback
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -34,7 +35,8 @@ def load_hooks(directory: Path) -> Hooks:
     return hooks
 
 
-def labelled(label: str) -> Iterator[None]:
+@contextmanager
+def labelled(label: str) -> Generator[None]:
     """Add `label` as a note to an exception raised inside, and let it go on."""
     try:
         yield
