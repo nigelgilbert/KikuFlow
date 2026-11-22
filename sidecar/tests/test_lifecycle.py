@@ -8,6 +8,7 @@ from kiku_sidecar.lifecycle import (
     Hook,
     default_message,
     fire,
+    fire_done,
     labelled,
     load_hooks,
     report,
@@ -86,6 +87,13 @@ def test_hook_file_keeps_state_between_its_hooks(tmp_path: Path):
     hooks = load_hooks(tmp_path)
     fire(hooks, "on_transcribed", "um hello")
     assert fire(hooks, "on_cleaned", "Hello.") == "um hello"
+
+
+def test_on_done_return_values_are_not_used():
+    calls = []
+    hooks = {"on_done": [(HERE, lambda t: ""), (HERE, recorder(calls))]}
+    fire_done(hooks, "hello")
+    assert calls == ["hello"]
 
 
 def test_failing_hook_raises_labelled_and_later_hooks_do_not_run(tmp_path: Path):
