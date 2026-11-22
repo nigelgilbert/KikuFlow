@@ -414,10 +414,14 @@ def test_on_done_passes_its_return_to_the_next_on_done(
     assert calls(hooks)[-1][:2] == ["on_done", "other"]
 
 
-def test_on_done_returning_empty_stops_the_later_on_done(hooks: Path, client: TestClient):
+def test_on_done_returning_empty_stops_the_later_on_done(
+    hooks: Path, tmp_path: Path, client: TestClient
+):
     (hooks / "a.py").write_text("def on_done(t): return ''\n")
     server.start_loading()
-    client.post("/transcribe", content=SPEECH)
+    assert client.post("/transcribe", content=SPEECH).status_code == 200
+    assert (tmp_path / "log.txt").read_text() == "We should meet on Friday."
+    assert errors(tmp_path) == []
     assert calls(hooks)[-1][0] == "on_sent"
 
 
