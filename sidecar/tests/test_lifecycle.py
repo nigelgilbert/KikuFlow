@@ -171,7 +171,29 @@ def test_first_message_from_on_error_wins(tmp_path: Path, errors: Path):
 def test_on_error_returning_nothing_is_skipped_and_gives_the_default(tmp_path: Path, errors: Path):
     write(tmp_path / "a.py", "def on_error(e): pass")
     expected = "on_cleaned in voice.py:3: KeyError: 'x'"
-    failure = "on_error in a.py: TypeError: on_error returned NoneType, not str"
+    failure = "on_error in a.py: TypeError: on_error returned NoneType, not str or the exception"
+    assert report(load_hooks(tmp_path), labelled_error()) == expected
+    assert entries(errors) == [expected, failure]
+
+
+def test_on_error_returning_the_exception_gives_the_default(tmp_path: Path, errors: Path):
+    write(tmp_path / "a.py", "def on_error(e): return e")
+    expected = "on_cleaned in voice.py:3: KeyError: 'x'"
+    assert report(load_hooks(tmp_path), labelled_error()) == expected
+    assert entries(errors) == [expected]
+
+
+def test_on_error_returning_the_exception_leaves_it_to_the_next(tmp_path: Path, errors: Path):
+    write(tmp_path / "a.py", "def on_error(e): return e")
+    write(tmp_path / "b.py", "def on_error(e): return 'second'")
+    assert report(load_hooks(tmp_path), labelled_error()) == "second"
+    assert entries(errors) == ["second"]
+
+
+def test_on_error_returning_another_exception_is_skipped_and_recorded(tmp_path: Path, errors: Path):
+    write(tmp_path / "a.py", "def on_error(e): return ValueError('other')")
+    expected = "on_cleaned in voice.py:3: KeyError: 'x'"
+    failure = "on_error in a.py: TypeError: on_error returned ValueError, not str or the exception"
     assert report(load_hooks(tmp_path), labelled_error()) == expected
     assert entries(errors) == [expected, failure]
 
@@ -214,7 +236,7 @@ def test_on_error_returning_a_wrong_type_is_skipped_and_recorded(tmp_path: Path,
     write(tmp_path / "offline.py", "def on_error(e): return {}")
     write(tmp_path / "z.py", "def on_error(e): return 'next'")
     assert report(load_hooks(tmp_path), labelled_error()) == "next"
-    failure = "on_error in offline.py: TypeError: on_error returned dict, not str"
+    failure = "on_error in offline.py: TypeError: on_error returned dict, not str or the exception"
     assert entries(errors) == ["next", failure]
     (tmp_path / "z.py").unlink()
     default = "on_cleaned in voice.py:3: KeyError: 'x'"

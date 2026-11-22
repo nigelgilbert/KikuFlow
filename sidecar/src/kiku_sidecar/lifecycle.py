@@ -18,8 +18,10 @@ HOOK_DIR = APP_DIR / "hooks"
 LOG_FILE = APP_DIR / "log.txt"
 ERRORS = APP_DIR / "errors.txt"
 
-type Hook = Callable[[Any], str]
-type Hooks = dict[str, list[tuple[Path, Hook]]]
+type Hook = Callable[[str], str]
+type ErrorHook = Callable[[Exception], str | Exception]
+# The hooks of each point with their files: a Hook, or an ErrorHook under "on_error".
+type Hooks = dict[str, list[tuple[Path, Callable[[Any], Any]]]]
 
 
 def one_line(text: str) -> str:
@@ -37,14 +39,22 @@ def labelled(label: str) -> Generator[None]:
         raise
 
 
-def hook_label(point: str, path: Path, e: Exception) -> str:
-    """Return a label like `on_cleaned in voice.py:3`, using the last traceback line in the file."""
-    trace = traceback.extract_tb(e.__traceback__)
-    lines = [f.lineno for f in trace if f.filename == str(path)]
-    label = f"{point} in {path.name}"
-    if lines:
-        label += f":{lines[-1]}"
-    return label
+@contextmanager
+def labelled_hook(point: str, path: Path) -> Generator[None]:
+    """Add a label like `on_cleaned in voice.py:3` to an exception raised inside, and let it go on.
+
+    The line is the last traceback line in the file at `path`, and is left out when there is none.
+    """
+    try:
+        yield
+    except Exception as e:
+        trace = traceback.extract_tb(e.__traceback__)
+        lines = [f.lineno for f in trace if f.filename == str(path)]
+        label = f"{point} in {path.name}"
+        if lines:
+            label += f":{lines[-1]}"
+        e.add_note(label)
+        raise
 
 
 def default_message(e: Exception) -> str:
@@ -94,16 +104,22 @@ def load_hooks(directory: Path) -> Hooks:
     return hooks
 
 
-def call(point: str, path: Path, hook: Hook, arg: str | Exception) -> str:
-    """Call `hook(arg)` and label any failure, including a return that is not a str."""
-    try:
-        result = hook(arg)
+def call(point: str, path: Path, hook: Hook, text: str) -> str:
+    """Call `hook(text)` and label any failure, including a return that is not a str."""
+    with labelled_hook(point, path):
+        result = hook(text)
         if not isinstance(result, str):
             raise TypeError(f"{point} returned {type(result).__name__}, not str")
-    except Exception as e:
-        e.add_note(hook_label(point, path, e))
-        raise
-    return result
+        return result
+
+
+def call_error(path: Path, hook: ErrorHook, e: Exception) -> str | Exception:
+    """Call `hook(e)` and label any failure, including a return that is neither a str nor `e`."""
+    with labelled_hook("on_error", path):
+        result = hook(e)
+        if result is not e and not isinstance(result, str):
+            raise TypeError(f"on_error returned {type(result).__name__}, not str or the exception")
+        return result
 
 
 def fire(hooks: Hooks, point: str, text: str) -> str:
@@ -122,15 +138,19 @@ def fire_done(hooks: Hooks, text: str) -> None:
 
 
 def hook_message(hooks: Hooks, e: Exception) -> str | None:
-    """Return the message of the first on_error hook that does not fail, or None."""
+    """Return the first message an on_error hook gives for `e`, or None.
+
+    A hook that returns `e` passes it on. One that fails is recorded and skipped.
+    """
     for path, hook in hooks["on_error"]:
         try:
-            message = call("on_error", path, hook, e)
+            result = call_error(path, hook, e)
         except Exception as failure:
             log.error("on_error hook failed", exc_info=failure)
             write_error(default_message(failure))
             continue
-        return one_line(message)
+        if isinstance(result, str):
+            return one_line(result)
     return None
 
 

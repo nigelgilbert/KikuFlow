@@ -201,8 +201,9 @@ def on_cleaned(t):
 | --- | --- |
 | a string | It is the message, in the HUD and in `errors.txt`. |
 | `""` | No message: nothing in the HUD, nothing in `errors.txt`. |
+| `e` | The hook passes. The next `on_error` hook is asked, and the default message is used when none is left. |
 
-`on_error` hooks run in filename order and the first that does not fail decides. One that fails, by raising or by returning anything but a string, is skipped, and its own failure goes in `errors.txt`. With no `on_error` hook, or none that succeeds, the default message is used.
+`on_error` hooks run in filename order and the first to return a string decides. One that fails, by raising or by returning anything but a string or `e`, is skipped, and its own failure goes in `errors.txt`. With no `on_error` hook, or none that returns a string, the default message is used.
 
 `offline.py` keeps network failures out of `errors.txt`, for a hook that posts somewhere and doesn't catch its own errors. `urllib` wraps the `ConnectionError` in `e.reason`. Before the paste this is a silent failure: nothing is pasted and nothing says why.
 
@@ -210,7 +211,7 @@ def on_cleaned(t):
 def on_error(e):
     if isinstance(getattr(e, "reason", e), ConnectionError):
         return ""
-    return f"{e.__notes__[-1]}: {type(e).__name__}: {e}"
+    return e
 ```
 
 Two failures never reach `on_error`: the models or a hook file failing to load, and the engine crashing. Both go in `errors.txt`, a run of crashes once.

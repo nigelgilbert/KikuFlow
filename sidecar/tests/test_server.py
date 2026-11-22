@@ -469,6 +469,7 @@ def test_on_error_can_keep_a_failure_after_the_reply_out_of_errors_txt(
         "def on_error(e):\n"
         "    if isinstance(getattr(e, 'reason', e), ConnectionError):\n"
         "        return ''\n"
+        "    return e\n"
     )
     server.start_loading()
     assert client.post("/transcribe", content=SPEECH).status_code == 200
