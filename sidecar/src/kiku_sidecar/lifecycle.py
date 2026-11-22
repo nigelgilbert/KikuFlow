@@ -4,7 +4,6 @@ import logging
 import runpy
 import traceback
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -35,7 +34,6 @@ def load_hooks(directory: Path) -> Hooks:
     return hooks
 
 
-@contextmanager
 def labelled(label: str) -> Iterator[None]:
     """Add `label` as a note to an exception raised inside, and let it go on."""
     try:
@@ -45,7 +43,7 @@ def labelled(label: str) -> Iterator[None]:
         raise
 
 
-def hook_label(point: str, path: Path, e: BaseException) -> str:
+def hook_label(point: str, path: Path, e: Exception) -> str:
     """`on_cleaned in voice.py:3`, the line being that of the last traceback frame in the file."""
     lines = [f.lineno for f in traceback.extract_tb(e.__traceback__) if f.filename == str(path)]
     return f"{point} in {path.name}" + (f":{lines[-1]}" if lines else "")
@@ -55,7 +53,7 @@ def fold(text: str) -> str:
     return " ".join(text.split())
 
 
-def default_message(e: BaseException) -> str:
+def default_message(e: Exception) -> str:
     """`label: Type: message` on one line, the label being the last note on `e`."""
     notes = getattr(e, "__notes__", [])
     label = notes[-1] if notes else ""
@@ -108,9 +106,13 @@ def report(hooks: Hooks, e: Exception) -> str:
 
 def prepend(path: Path, text: str, keep: int) -> None:
     """Put `text` first in the file at `path` as one line, keeping the newest `keep`."""
-    if not (text := fold(text)):
+    text = fold(text)
+    if not text:
         return
-    old = path.read_text(encoding="utf-8").strip().split("\n\n") if path.exists() else []
+    try:
+        old = path.read_text(encoding="utf-8").strip().split("\n\n")
+    except FileNotFoundError:
+        old = []
     path.write_text("\n\n".join([text, *filter(None, old)][:keep]), encoding="utf-8")
 
 
