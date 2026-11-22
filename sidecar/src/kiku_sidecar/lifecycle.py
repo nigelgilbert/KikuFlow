@@ -122,7 +122,7 @@ def fire_done(hooks: Hooks, text: str) -> None:
 
 
 def hook_message(hooks: Hooks, e: Exception) -> str | None:
-    """Return the first on_error hook's message for `e`. A failed hook is recorded and skipped."""
+    """Return the message of the first on_error hook that does not fail, or None."""
     for path, hook in hooks["on_error"]:
         try:
             message = call("on_error", path, hook, e)
