@@ -47,8 +47,12 @@ def labelled(label: str) -> Generator[None]:
 
 def hook_label(point: str, path: Path, e: Exception) -> str:
     """Return a label like `on_cleaned in voice.py:3`, using the last traceback line in the file."""
-    lines = [f.lineno for f in traceback.extract_tb(e.__traceback__) if f.filename == str(path)]
-    return f"{point} in {path.name}" + (f":{lines[-1]}" if lines else "")
+    trace = traceback.extract_tb(e.__traceback__) 
+    lines = [f.lineno for f in trace if f.filename == str(path)]
+    label = f"{point} in {path.name}"
+    if lines:
+        label += f":{lines[-1]}"
+    return label
 
 
 def one_line(text: str) -> str:
