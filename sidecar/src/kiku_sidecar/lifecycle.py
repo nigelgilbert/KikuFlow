@@ -116,7 +116,7 @@ def fire(hooks: Hooks, point: str, text: str) -> str:
 
 
 def fire_done(hooks: Hooks, text: str) -> None:
-    """Run every on_done hook with `text`. What a hook returns changes nothing."""
+    """Run every on_done hook with `text`. What a hook returns is not used."""
     for path, hook in hooks["on_done"]:
         call("on_done", path, hook, text)
 

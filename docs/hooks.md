@@ -29,7 +29,7 @@ Kiku Flow loads every `*.py` file in that folder. A build from source links the 
 | `on_transcribed(t)` | after speech recognition | what you said | the text the cleanup model sees |
 | `on_cleaned(t)` | after the cleanup model | the cleaned text | the text that is pasted |
 | `on_sent(t)` | once the text has gone off to be pasted | the pasted text | the log entry |
-| `on_done(t)` | after the log entry is written | the log entry | nothing; it returns the text, which is ignored |
+| `on_done(t)` | after the log entry is written | the log entry | nothing; it returns the text, which is not used |
 | `on_error(e)` | after a failure | the exception | the message shown and kept |
 
 The first three are the text hooks, and a return from one means:
