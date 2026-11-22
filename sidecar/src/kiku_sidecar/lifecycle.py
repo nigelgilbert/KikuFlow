@@ -47,7 +47,7 @@ def labelled(label: str) -> Generator[None]:
 
 def hook_label(point: str, path: Path, e: Exception) -> str:
     """Return a label like `on_cleaned in voice.py:3`, using the last traceback line in the file."""
-    trace = traceback.extract_tb(e.__traceback__) 
+    trace = traceback.extract_tb(e.__traceback__)
     lines = [f.lineno for f in trace if f.filename == str(path)]
     label = f"{point} in {path.name}"
     if lines:
@@ -71,13 +71,13 @@ def default_message(e: Exception) -> str:
 def call(point: str, path: Path, hook: Callable[[Any], str | None], arg: Any) -> str | None:
     """Call `hook(arg)` and label any failure, including a return that is not str or None."""
     try:
-        new = hook(arg)
-        if new is not None and not isinstance(new, str):
-            raise TypeError(f"{point} returned {type(new).__name__}, not str or None")
+        result = hook(arg)
+        if result is not None and not isinstance(result, str):
+            raise TypeError(f"{point} returned {type(result).__name__}, not str or None")
     except Exception as e:
         e.add_note(hook_label(point, path, e))
         raise
-    return new
+    return result
 
 
 def fire(hooks: Hooks, point: str, text: str) -> str:
@@ -85,27 +85,33 @@ def fire(hooks: Hooks, point: str, text: str) -> str:
     for path, hook in hooks[point]:
         if not text:
             break
-        new = call(point, path, hook, text)
-        if point != "on_done" and new is not None:  # a str from on_done changes nothing
-            text = new
+        replacement = call(point, path, hook, text)
+        if point != "on_done" and replacement is not None:  # a str from on_done changes nothing
+            text = replacement
     return text
 
 
-def report(hooks: Hooks, e: Exception) -> str:
-    """Write the message for `e` to errors.txt and return it: the first str an on_error hook
-    returns, else the default."""
-    log.error("dictation failed", exc_info=e)
-    message = default_message(e)
+def hook_message(hooks: Hooks, e: Exception) -> str | None:
+    """The first str an on_error hook returns for `e`; a hook that fails is recorded and skipped."""
     for path, hook in hooks["on_error"]:
         try:
-            new = call("on_error", path, hook, e)
+            message = call("on_error", path, hook, e)
         except Exception as failure:
             log.error("on_error hook failed", exc_info=failure)
             write_error(default_message(failure))
             continue
-        if new is not None:
-            message = one_line(new)
-            break
+        if message is not None:
+            return one_line(message)
+    return None
+
+
+def report(hooks: Hooks, e: Exception) -> str:
+    """Write the message for `e` to errors.txt, unless it is empty, and return it."""
+    log.error("dictation failed", exc_info=e)
+    default = default_message(e)
+    message = hook_message(hooks, e)
+    if message is None:
+        message = default
     if message:
         write_error(message)
     return message
