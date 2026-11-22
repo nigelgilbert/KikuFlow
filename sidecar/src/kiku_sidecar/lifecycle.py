@@ -23,16 +23,9 @@ type Hook = Callable[[Any], str | None]
 type Hooks = dict[str, list[tuple[Path, Hook]]]
 
 
-def load_hooks(directory: Path) -> Hooks:
-    """Load the hooks of every *.py in `directory`, in filename order."""
-    hooks: Hooks = {point: [] for point in (*POINTS, "on_error")}
-    for path in sorted(directory.glob("*.py")):
-        with labelled(f"hook file {path.name}"):
-            names = runpy.run_path(str(path))
-        for point in hooks:
-            if point in names:
-                hooks[point].append((path, names[point]))
-    return hooks
+def one_line(text: str) -> str:
+    """Return `text` on one line, with each run of whitespace collapsed to a space."""
+    return " ".join(text.split())
 
 
 @contextmanager
@@ -55,17 +48,50 @@ def hook_label(point: str, path: Path, e: Exception) -> str:
     return label
 
 
-def one_line(text: str) -> str:
-    """Return `text` on one line, with each run of whitespace collapsed to a space."""
-    return " ".join(text.split())
-
-
 def default_message(e: Exception) -> str:
     """Return `label: Type: message` on one line, where the label is the last note on `e`."""
     notes = getattr(e, "__notes__", [])
     label = notes[-1] if notes else ""
     parts = [label, type(e).__name__, str(e).strip()]
     return one_line(": ".join(filter(None, parts)))
+
+
+def prepend(path: Path, text: str, keep: int) -> None:
+    """Put `text` first in the file at `path` as one line, keeping the newest `keep`."""
+    new_entry = one_line(text)
+    if not new_entry:
+        return
+    try:
+        old_entries = path.read_text(encoding="utf-8").strip().split("\n\n")
+    except FileNotFoundError:
+        old_entries = []
+    entries = [new_entry, *filter(None, old_entries)]
+    formatted = "\n\n".join(entries[:keep])
+    path.write_text(formatted, encoding="utf-8")
+
+
+def write_log(text: str) -> None:
+    prepend(LOG_FILE, text, 100)
+
+
+def write_error(message: str) -> None:
+    """Add `message` to errors.txt with the time in front; a failed write only goes to stderr."""
+    try:
+        prepend(ERRORS, f"{datetime.now():%Y-%m-%d %H:%M} {message}", 50)
+    except Exception:
+        log.exception("errors.txt write failed")
+
+
+def load_hooks(directory: Path) -> Hooks:
+    """Load the hooks of every *.py in `directory`, in filename order."""
+    hooks: Hooks = {point: [] for point in (*POINTS, "on_error")}
+    for path in sorted(directory.glob("*.py")):
+        with labelled(f"hook file {path.name}"):
+            names = runpy.run_path(str(path))
+        for point in hooks:
+            if point in names:
+                hooks[point].append((path, names[point]))
+    return hooks
 
 
 def call(point: str, path: Path, hook: Hook, arg: str | Exception) -> str | None:
@@ -121,29 +147,3 @@ def report(hooks: Hooks, e: Exception) -> str:
     if message:
         write_error(message)
     return message
-
-
-def prepend(path: Path, text: str, keep: int) -> None:
-    """Put `text` first in the file at `path` as one line, keeping the newest `keep`."""
-    new_entry = one_line(text)
-    if not new_entry:
-        return
-    try:
-        old_entries = path.read_text(encoding="utf-8").strip().split("\n\n")
-    except FileNotFoundError:
-        old_entries = []
-    entries = [new_entry, *filter(None, old_entries)]
-    formatted = "\n\n".join(entries[:keep])
-    path.write_text(formatted, encoding="utf-8")
-
-
-def write_log(text: str) -> None:
-    prepend(LOG_FILE, text, 100)
-
-
-def write_error(message: str) -> None:
-    """Add `message` to errors.txt with the time in front; a failed write only goes to stderr."""
-    try:
-        prepend(ERRORS, f"{datetime.now():%Y-%m-%d %H:%M} {message}", 50)
-    except Exception:
-        log.exception("errors.txt write failed")
