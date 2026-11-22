@@ -5,6 +5,7 @@ import pytest
 from kiku_sidecar import lifecycle
 from kiku_sidecar.lifecycle import (
     POINTS,
+    Hook,
     default_message,
     fire,
     fire_done,
@@ -14,6 +15,16 @@ from kiku_sidecar.lifecycle import (
 )
 
 HERE = Path(__file__)
+
+
+def recorder(calls: list[str]) -> Hook:
+    """Return a hook that adds its text to `calls` and returns it."""
+
+    def record(t: str) -> str:
+        calls.append(t)
+        return t
+
+    return record
 
 
 def write(path: Path, source: str) -> Path:
@@ -29,6 +40,7 @@ raw = ""
 def on_transcribed(t):
     global raw
     raw = t
+    return t
 
 def on_cleaned(t):
     return raw
@@ -37,7 +49,7 @@ def on_cleaned(t):
 
 def test_loads_hooks_in_filename_order(tmp_path: Path):
     write(tmp_path / "b.py", "def on_cleaned(t): return t + ' b'")
-    write(tmp_path / "a.py", "def on_cleaned(t): return t + ' a'\ndef on_done(t): pass")
+    write(tmp_path / "a.py", "def on_cleaned(t): return t + ' a'\ndef on_done(t): return t")
     hooks = load_hooks(tmp_path)
     assert [len(hooks[p]) for p in POINTS] == [0, 2, 0, 1]
     assert fire(hooks, "on_cleaned", "hello") == "hello a b"
@@ -56,9 +68,18 @@ def test_file_failing_to_import_raises_labelled(tmp_path: Path):
     )
 
 
-def test_returned_str_replaces_the_text_and_none_keeps_it():
-    hooks = {"on_cleaned": [(HERE, lambda t: "shouted " + t.upper()), (HERE, lambda t: None)]}
-    assert fire(hooks, "on_cleaned", "hello") == "shouted HELLO"
+def test_returned_str_replaces_the_text():
+    hooks = {"on_cleaned": [(HERE, lambda t: "shouted " + t.upper()), (HERE, lambda t: t + "!")]}
+    assert fire(hooks, "on_cleaned", "hello") == "shouted HELLO!"
+
+
+def test_hook_returning_nothing_raises_labelled(tmp_path: Path):
+    write(tmp_path / "a.py", "def on_cleaned(t):\n    t.upper()\n")
+    with pytest.raises(TypeError) as info:
+        fire(load_hooks(tmp_path), "on_cleaned", "hello")
+    assert default_message(info.value) == (
+        "on_cleaned in a.py: TypeError: on_cleaned returned NoneType, not str"
+    )
 
 
 def test_hook_file_keeps_state_between_its_hooks(tmp_path: Path):
@@ -70,7 +91,7 @@ def test_hook_file_keeps_state_between_its_hooks(tmp_path: Path):
 
 def test_on_done_return_values_are_ignored():
     calls = []
-    hooks = {"on_done": [(HERE, lambda t: ""), (HERE, calls.append)]}
+    hooks = {"on_done": [(HERE, lambda t: ""), (HERE, recorder(calls))]}
     fire_done(hooks, "hello")
     assert calls == ["hello"]
 
@@ -79,7 +100,7 @@ def test_failing_hook_raises_labelled_and_later_hooks_do_not_run(tmp_path: Path)
     calls = []
     write(tmp_path / "voice.py", "def on_cleaned(t):\n    return {}['x']\n")
     hooks = load_hooks(tmp_path)
-    hooks["on_cleaned"].append((HERE, calls.append))
+    hooks["on_cleaned"].append((HERE, recorder(calls)))
     with pytest.raises(KeyError) as info:
         fire(hooks, "on_cleaned", "hello")
     assert info.value.__notes__ == ["on_cleaned in voice.py:2"]
@@ -116,7 +137,7 @@ def test_message_is_folded_onto_one_line():
 
 def test_fire_stops_once_the_text_is_empty():
     calls = []
-    hooks = {"on_transcribed": [(HERE, lambda t: ""), (HERE, calls.append)]}
+    hooks = {"on_transcribed": [(HERE, lambda t: ""), (HERE, recorder(calls))]}
     assert fire(hooks, "on_transcribed", "hello") == ""
     assert fire(hooks, "on_transcribed", "") == ""
     assert calls == []
@@ -148,20 +169,25 @@ def test_on_error_loads_beside_the_text_hooks(tmp_path: Path, errors: Path):
     assert report(hooks, labelled_error()) == "nope"
 
 
-def test_first_str_from_on_error_wins(tmp_path: Path, errors: Path):
-    write(tmp_path / "a.py", "def on_error(e): return None")
-    write(tmp_path / "b.py", "def on_error(e):\n    return f'first:\\n {type(e).__name__}'")
-    write(tmp_path / "c.py", "def on_error(e): return 'second'")
+def test_first_message_from_on_error_wins(tmp_path: Path, errors: Path):
+    write(tmp_path / "a.py", "def on_error(e):\n    return f'first:\\n {type(e).__name__}'")
+    write(tmp_path / "b.py", "def on_error(e): return 'second'")
     assert report(load_hooks(tmp_path), labelled_error()) == "first: KeyError"
     assert entries(errors) == ["first: KeyError"]
 
 
-def test_on_error_returning_none_or_nothing_gives_the_default(tmp_path: Path, errors: Path):
+def test_on_error_returning_nothing_is_skipped_and_gives_the_default(tmp_path: Path, errors: Path):
     write(tmp_path / "a.py", "def on_error(e): pass")
     expected = "on_cleaned in voice.py:3: KeyError: 'x'"
+    failure = "on_error in a.py: TypeError: on_error returned NoneType, not str"
     assert report(load_hooks(tmp_path), labelled_error()) == expected
+    assert entries(errors) == [expected, failure]
+
+
+def test_no_on_error_hook_gives_the_default(tmp_path: Path, errors: Path):
+    expected = "on_cleaned in voice.py:3: KeyError: 'x'"
     assert report(load_hooks(tmp_path / "missing"), labelled_error()) == expected
-    assert entries(errors) == [expected, expected]
+    assert entries(errors) == [expected]
 
 
 def test_on_error_returning_empty_suppresses_the_message(tmp_path: Path, errors: Path):
@@ -196,7 +222,7 @@ def test_on_error_returning_a_wrong_type_is_skipped_and_recorded(tmp_path: Path,
     write(tmp_path / "offline.py", "def on_error(e): return {}")
     write(tmp_path / "z.py", "def on_error(e): return 'next'")
     assert report(load_hooks(tmp_path), labelled_error()) == "next"
-    failure = "on_error in offline.py: TypeError: on_error returned dict, not str or None"
+    failure = "on_error in offline.py: TypeError: on_error returned dict, not str"
     assert entries(errors) == ["next", failure]
     (tmp_path / "z.py").unlink()
     default = "on_cleaned in voice.py:3: KeyError: 'x'"
