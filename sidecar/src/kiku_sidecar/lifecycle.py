@@ -109,14 +109,16 @@ def report(hooks: Hooks, e: Exception) -> str:
 
 def prepend(path: Path, text: str, keep: int) -> None:
     """Put `text` first in the file at `path` as one line, keeping the newest `keep`."""
-    text = one_line(text)
-    if not text:
+    new_entry = one_line(text)
+    if not new_entry:
         return
     try:
-        old = path.read_text(encoding="utf-8").strip().split("\n\n")
+        old_entries = path.read_text(encoding="utf-8").strip().split("\n\n")
     except FileNotFoundError:
-        old = []
-    path.write_text("\n\n".join([text, *filter(None, old)][:keep]), encoding="utf-8")
+        old_entries = []
+    entries = [new_entry, *filter(None, old_entries)]
+    formatted = "\n\n".join(entries[:keep])
+    path.write_text(formatted, encoding="utf-8")
 
 
 def write_log(text: str) -> None:
