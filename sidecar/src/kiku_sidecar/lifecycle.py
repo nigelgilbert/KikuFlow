@@ -24,7 +24,7 @@ type Hooks = dict[str, list[tuple[Path, Callable[[Any], str | None]]]]
 
 
 def load_hooks(directory: Path) -> Hooks:
-    """The hooks of every *.py in `directory`, in filename order."""
+    """Load the hooks of every *.py in `directory`, in filename order."""
     hooks: Hooks = {point: [] for point in (*POINTS, "on_error")}
     for path in sorted(directory.glob("*.py")):
         with labelled(f"hook file {path.name}"):
@@ -46,25 +46,26 @@ def labelled(label: str) -> Generator[None]:
 
 
 def hook_label(point: str, path: Path, e: Exception) -> str:
-    """`on_cleaned in voice.py:3`, the line being that of the last traceback frame in the file."""
+    """Return a label like `on_cleaned in voice.py:3`, using the last traceback line in the file."""
     lines = [f.lineno for f in traceback.extract_tb(e.__traceback__) if f.filename == str(path)]
     return f"{point} in {path.name}" + (f":{lines[-1]}" if lines else "")
 
 
-def fold(text: str) -> str:
+def one_line(text: str) -> str:
+    """Return `text` on one line, with each run of whitespace collapsed to a space."""
     return " ".join(text.split())
 
 
 def default_message(e: Exception) -> str:
-    """`label: Type: message` on one line, the label being the last note on `e`."""
+    """Return `label: Type: message` on one line, where the label is the last note on `e`."""
     notes = getattr(e, "__notes__", [])
     label = notes[-1] if notes else ""
     parts = [label, type(e).__name__, str(e).strip()]
-    return fold(": ".join(filter(None, parts)))
+    return one_line(": ".join(filter(None, parts)))
 
 
 def call(point: str, path: Path, hook: Callable[[Any], str | None], arg: Any) -> str | None:
-    """`hook(arg)`; a failure, or a return that is not str or None, raises labelled."""
+    """Call `hook(arg)` and label any failure, including a return that is not str or None."""
     try:
         new = hook(arg)
         if new is not None and not isinstance(new, str):
@@ -99,7 +100,7 @@ def report(hooks: Hooks, e: Exception) -> str:
             write_error(default_message(failure))
             continue
         if new is not None:
-            message = fold(new)
+            message = one_line(new)
             break
     if message:
         write_error(message)
@@ -108,7 +109,7 @@ def report(hooks: Hooks, e: Exception) -> str:
 
 def prepend(path: Path, text: str, keep: int) -> None:
     """Put `text` first in the file at `path` as one line, keeping the newest `keep`."""
-    text = fold(text)
+    text = one_line(text)
     if not text:
         return
     try:
