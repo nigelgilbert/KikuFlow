@@ -1,34 +1,26 @@
-"""Start with "shell" and the command that does what you said is pasted. It is never run."""
+"""Start with "terminal", "command line", "shell" or "bash" and the command is pasted, never run."""
 
 import re
 
 from mlx_lm import generate, load
 
-MODEL = "mlx-community/Qwen3-4B-Instruct-2507-4bit"
-PREFIX = re.compile(r"terminal\b\W*(.+)", re.IGNORECASE | re.DOTALL)
+MODEL = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
+WORDS = "terminal|command[- ]?line|shell|bash"
+PREFIX = re.compile(rf"\W*(?:{WORDS})\b\W*(.+)", re.IGNORECASE | re.DOTALL)
 PROMPT = (
     "Write the zsh command for macOS that does what the user asks, run from the folder they mean. "
     "Output only the command, on one line, with no code fence and no explanation."
 )
 
 model, tokenizer = load(MODEL)[:2]
-wanted = False
 
 
-def on_transcribed(t):
-    """Take "shell" off the front, so the cleanup model sees only the request."""
-    global wanted
+def on_cleaned(t: str) -> str:
+    """Return the command that does what was asked, in place of the request."""
     said = PREFIX.match(t)
-    wanted = bool(said)
-    return said[1] if said else t
-
-
-def on_cleaned(t):
-    if not wanted:
+    if not said:
         return t
-    chat = tokenizer.apply_chat_template(
-        [{"role": "system", "content": PROMPT}, {"role": "user", "content": t}],
-        add_generation_prompt=True,
-        tokenize=False,
-    )
-    return generate(model, tokenizer, chat, max_tokens=128).strip() or t
+    messages = [{"role": "system", "content": PROMPT}, {"role": "user", "content": said[1]}]
+    chat = tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
+    reply = generate(model, tokenizer, chat, max_tokens=128)
+    return reply.strip("` \n") or t
