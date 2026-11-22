@@ -21,16 +21,17 @@ def on_transcribed(t):
     global language
     said = PREFIX.match(t)
     language = said and said[1]
-    return said and said[2]
+    return said[2] if said else t
 
 
 def on_cleaned(t):
     if not language:
-        return None
+        return t
     chat = tokenizer.apply_chat_template(
         [{"role": "system", "content": PROMPT.format(language)}, {"role": "user", "content": t}],
         add_generation_prompt=True,
         tokenize=False,
     )
     max_tokens = 4 * len(tokenizer.encode(t)) + 64
-    return generate(model, tokenizer, chat, max_tokens=max_tokens).strip() or None
+    translation = generate(model, tokenizer, chat, max_tokens=max_tokens).strip()
+    return translation or t

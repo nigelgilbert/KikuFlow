@@ -17,15 +17,16 @@ def on_transcribed(t):
     global asking
     said = PREFIX.match(t)
     asking = bool(said)
-    return said and said[1]
+    return said[1] if said else t
 
 
 def on_cleaned(t):
     if not asking:
-        return None
+        return t
     chat = tokenizer.apply_chat_template(
         [{"role": "system", "content": PROMPT}, {"role": "user", "content": t}],
         add_generation_prompt=True,
         tokenize=False,
     )
-    return generate(model, tokenizer, chat, max_tokens=256).strip() or None
+    reply = generate(model, tokenizer, chat, max_tokens=256).strip()
+    return reply or t

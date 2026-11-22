@@ -18,7 +18,7 @@ COMMANDS = {  # keys in lower case
 def on_transcribed(t):
     said = PREFIX.match(t)
     if not said:
-        return None
+        return t
     name = said[1].lower()
     if name.startswith("open "):
         argv = ["open", "-a", name.removeprefix("open ")]
