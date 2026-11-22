@@ -31,7 +31,7 @@ def on_cleaned(t):
     return first.lower() + rest
 ```
 
-That is the whole plugin system. A hook is plain Python, so it can call a second model or drive your Mac. The ones in [examples/](examples/) translate what you say, answer your questions and run commands by voice.
+That is the whole plugin system. A hook is plain Python, so it can call a second model or drive your Mac. The ones in [examples/](examples/) translate what you say, search the web and run commands by voice.
 
 ## Quick start
 
