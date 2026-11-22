@@ -1,4 +1,4 @@
-"""Start with "shell" and the command that does what you said is pasted. It is never run."""
+"""Start with "terminal" and the command that does what you said is pasted. It is never run."""
 
 import re
 
@@ -16,7 +16,7 @@ wanted = False
 
 
 def on_transcribed(t):
-    """Take "shell" off the front, so the cleanup model sees only the request."""
+    """Take "terminal" off the front, so the cleanup model sees only the request."""
     global wanted
     said = PREFIX.match(t)
     wanted = bool(said)
