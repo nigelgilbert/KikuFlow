@@ -46,7 +46,7 @@ class Recorder(Plugin):
 
 
 class Empty(Plugin):
-    """Stop the dictation at every text hook, and return an empty string from on_done."""
+    """Stop the dictation at on_transcribed, and return an empty string from on_done."""
 
     @override
     def on_transcribed(self, t: str) -> str:
@@ -111,9 +111,11 @@ def test_class_bound_to_two_names_is_instantiated_once(tmp_path: Path):
 
 def test_imported_subclass_is_not_instantiated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     shared = "from kiku_sidecar import Plugin\n\n\nclass Shared(Plugin):\n    pass\n"
-    write(tmp_path / "lib/shared.py", shared)
+    # A name no other test imports, since the module stays in sys.modules.
+    write(tmp_path / "lib/kiku_test_shared_plugin.py", shared)
     monkeypatch.syspath_prepend(tmp_path / "lib")
-    write(tmp_path / "hooks/a.py", "from shared import Shared\n\n\nclass Own(Shared):\n    pass\n")
+    own = "from kiku_test_shared_plugin import Shared\n\n\nclass Own(Shared):\n    pass\n"
+    write(tmp_path / "hooks/a.py", own)
     plugins = load_plugins(tmp_path / "hooks")
     assert [type(plugin).__name__ for _, plugin in plugins] == ["Own"]
 
