@@ -7,6 +7,7 @@ import pytest
 from kiku_sidecar import Plugin, lifecycle
 from kiku_sidecar.lifecycle import (
     Plugins,
+    TextPoint,
     default_message,
     fire,
     fire_done,
@@ -102,6 +103,12 @@ def test_two_plugins_in_one_file_run_in_definition_order(tmp_path: Path):
     assert fire(plugins, "on_cleaned", "hello") == "hello second first"
 
 
+def test_class_bound_to_two_names_is_instantiated_once(tmp_path: Path):
+    source = plugin_file("def on_cleaned(self, t: str): return t + '!'") + "\n\nAlias = P\n"
+    write(tmp_path / "a.py", source)
+    assert fire(load_plugins(tmp_path), "on_cleaned", "hello") == "hello!"
+
+
 def test_imported_subclass_is_not_instantiated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     shared = "from kiku_sidecar import Plugin\n\n\nclass Shared(Plugin):\n    pass\n"
     write(tmp_path / "lib/shared.py", shared)
@@ -141,7 +148,8 @@ def test_plugin_failing_to_initialize_raises_labelled(tmp_path: Path):
 
 def test_defaults_pass_text_and_exceptions_through():
     plugins: Plugins = [(HERE, Plugin())]
-    for point in ("on_transcribed", "on_cleaned", "on_sent"):
+    points: tuple[TextPoint, ...] = ("on_transcribed", "on_cleaned", "on_sent")
+    for point in points:
         assert fire(plugins, point, "hello") == "hello"
     fire_done(plugins, "hello")
     assert hook_message(plugins, KeyError("x")) is None

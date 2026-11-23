@@ -7,6 +7,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from .config import APP_DIR
 
@@ -21,6 +22,8 @@ RUN_PATH_MODULE = "<run_path>"
 
 type Hook = Callable[[str], str]
 type ErrorHook = Callable[[Exception], str | Exception]
+# The hooks whose return replaces the text.
+type TextPoint = Literal["on_transcribed", "on_cleaned", "on_sent"]
 
 
 class Plugin:
@@ -137,19 +140,21 @@ def write_error(message: str) -> None:
 def defined_plugins(names: dict[str, object]) -> list[type[Plugin]]:
     """Return the Plugin subclasses that a file run by `runpy.run_path` defines, in order.
 
-    `names` is the file's globals. A class the file only imported is left out.
+    `names` is the file's globals. A class the file only imported is left out, and a class
+    bound to more than one name is returned once.
     """
-    return [
+    classes = [
         value
         for value in names.values()
         if isinstance(value, type)
         and issubclass(value, Plugin)
         and value.__module__ == RUN_PATH_MODULE
     ]
+    return list(dict.fromkeys(classes))
 
 
 def load_plugins(directory: Path) -> Plugins:
-    """Return a new instance of each plugin in every *.py in `directory`, in filename order."""
+    """Return each plugin in every *.py in `directory` with its file's path, in filename order."""
     plugins: Plugins = []
     for path in sorted(directory.glob("*.py")):
         with labelled(f"hook file {path.name}"):
@@ -177,7 +182,7 @@ def call_error(path: Path, hook: ErrorHook, e: Exception) -> str | Exception:
         return result
 
 
-def fire(plugins: Plugins, point: str, text: str) -> str:
+def fire(plugins: Plugins, point: TextPoint, text: str) -> str:
     """Run each plugin's hook for `point` in order while there is text. Each str replaces it."""
     for path, plugin in plugins:
         if not text:
