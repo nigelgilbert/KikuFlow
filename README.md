@@ -22,13 +22,20 @@ Every dictation takes the same short trip, and the stops in brackets are yours:
 mic → transcribe → [on_transcribed] → cleanup → [on_cleaned] → paste → [on_sent] → log → [on_done]
 ```
 
-A hook is a Python function in a file in the hooks folder. It gets the text and returns the text. This one makes every dictation read like a text message, with no capital at the start and no full stop at the end:
+A hook is a method of a plugin, a Python class in a file in the hooks folder. It gets the text and returns the text. This one makes every dictation read like a text message, with no capital at the start and no full stop at the end:
 
 ```python
-def on_cleaned(t):
-    t = t.removesuffix(".")
-    first, rest = t[:1], t[1:]
-    return first.lower() + rest
+from typing import override
+
+from kiku_sidecar import Plugin
+
+
+class ChatVoice(Plugin):
+    @override
+    def on_cleaned(self, t: str) -> str:
+        t = t.removesuffix(".")
+        first, rest = t[:1], t[1:]
+        return first.lower() + rest
 ```
 
 That is the whole plugin system. A hook is plain Python, so it can call a second model or drive your Mac. The ones in [examples/](examples/) translate what you say, search the web and run commands by voice.

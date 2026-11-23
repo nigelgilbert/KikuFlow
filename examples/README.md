@@ -21,4 +21,4 @@ Two things to know before you copy a file:
 
 [hud.py](hud.py) is not a hook. It is a HUD renderer that posts a notification each time you finish talking; see [Your own HUD](../docs/customization.md#your-own-hud).
 
-For how hooks work, and smaller recipes to start from, see [Lifecycle hooks](../docs/hooks.md).
+Each file defines one `Plugin` subclass whose methods are its hooks. For how hooks work, and smaller recipes to start from, see [Lifecycle hooks](../docs/hooks.md).

@@ -83,7 +83,7 @@ A prompt changes what the cleanup does. To keep the cleanup and add a step after
 
 ## Hooks
 
-A hook is a Python function in a file in `hooks/` that changes the text at one point in a dictation. Hooks can fix vocabulary, translate, run commands, and choose what is logged and what an error says. [Lifecycle hooks](hooks.md) has all of it.
+A hook is a method of a plugin, a Python class in a file in `hooks/`, that changes the text at one point in a dictation. Hooks can fix vocabulary, translate, run commands, and choose what is logged and what an error says. [Lifecycle hooks](hooks.md) has all of it.
 
 ## Your own HUD
 
