@@ -55,7 +55,7 @@ If you said nothing, no hooks fire.
 
 Files load in filename order, and the plugins in a file in the order it defines them. Hooks run in that order, each getting what the one before it returned.
 
-A file runs once, when the app starts, and its plugins are made then. Each plugin stays put between dictations, so an attribute that `on_transcribed` sets on `self` is still there for `on_cleaned`. Module-level state stays put too, and a model loaded at the top of the file stays loaded.
+A file runs when the app starts or reloads, and its plugins are made then. Each plugin stays put between dictations, so an attribute that `on_transcribed` sets on `self` is still there for `on_cleaned`. Module-level state stays put too, and a model loaded at the top of the file stays loaded.
 
 Hooks run in the speech engine's own Python, so they can import the standard library and what the engine ships with, mlx-lm and NumPy included. Nothing else: that Python is re-synced at every launch, and a package you install into it is removed.
 
