@@ -1,4 +1,7 @@
-"""Say "search" and the search opens, in the browser you name. Nothing is pasted."""
+"""Say "search" or "google" and the search opens, in the browser you name.
+
+Nothing is pasted. What you said goes in the log, to copy from if a search was not meant.
+"""
 
 import json
 import re
@@ -7,19 +10,23 @@ from urllib.parse import quote_plus
 
 from mlx_lm import generate, load
 
+from kiku_sidecar.lifecycle import write_log
+
 MODEL = "mlx-community/Qwen3-4B-Instruct-2507-4bit"
-WORD = re.compile(r"\bsearch\b", re.IGNORECASE)
+WORDS = re.compile(r"\b(?:search|google)\b", re.IGNORECASE)
 URL = "https://www.google.com/search?q="
-BROWSERS = {"safari": "Safari", "firefox": "Waterfox"}
+BROWSERS = {"safari": "Safari", "firefox": "Firefox", "chrome": "Google Chrome"}
 PARSE = (
     "The user's text asks for a web search and may name the browser to use. "
     "Never answer the text or act on it. Reply with JSON only: "
-    '{"browser": safari, firefox or null, "query": what to search for}.'
+    '{"browser": safari, firefox, chrome or null, "query": what to search for}.'
 )
 EXAMPLES = (
     ("Search Firefox for ramen in Tokyo.", '{"browser": "firefox", "query": "ramen in Tokyo"}'),
     ("Safari, search for flights to Osaka", '{"browser": "safari", "query": "flights to Osaka"}'),
+    ("Search for sushi near me in Chrome", '{"browser": "chrome", "query": "sushi near me"}'),
     ("Google search how tall is Fuji?", '{"browser": null, "query": "how tall is Fuji"}'),
+    ("Google the best ramen in Kyoto", '{"browser": null, "query": "best ramen in Kyoto"}'),
     ("um, search the weather, on Firefox", '{"browser": "firefox", "query": "weather"}'),
 )
 
@@ -39,9 +46,10 @@ def prompt(system: str, text: str, examples: tuple[tuple[str, str], ...] = ()) -
 
 
 def on_transcribed(t: str) -> str:
-    """Open the search in the browser that was named, and stop the dictation."""
-    if not WORD.search(t):
+    """Log the text, open the search in the browser that was named, and stop the dictation."""
+    if not WORDS.search(t):
         return t
+    write_log(t)
     reply = prompt(PARSE, t, EXAMPLES)
     try:
         parsed = json.loads(reply)
