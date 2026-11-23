@@ -29,5 +29,7 @@ line-length = 100
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pyright]
+# The examples too, so they are checked against `Plugin`.
+include = ["src", "tests", "../examples"]
 venvPath = "."
 venv = ".venv"
