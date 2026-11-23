@@ -58,7 +58,10 @@ class Translate(Plugin):
         if not LANGUAGES.search(t):
             return t
         reply = prompt(PARSE, t, EXAMPLES)
-        asked = json.loads(reply)["language"]
+        try:
+            asked = json.loads(reply)["language"]
+        except ValueError, KeyError, TypeError:
+            return t
         if not asked:
             return t
         before, after = re.split(asked, t, maxsplit=1, flags=re.IGNORECASE)

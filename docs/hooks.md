@@ -22,6 +22,7 @@ from kiku_sidecar import Plugin
 class Shout(Plugin):
     @override
     def on_cleaned(self, t: str) -> str:
+        """Return the text in capitals."""
         return t.upper()
 ```
 
@@ -84,10 +85,17 @@ ALTERNATIVES = "|".join(map(re.escape, WORDS))
 PATTERN = re.compile(rf"\b({ALTERNATIVES})\b", re.IGNORECASE)
 
 
+def corrected(match: re.Match[str]) -> str:
+    """Return the right spelling of the word that was misheard."""
+    heard = match[0].lower()
+    return WORDS[heard]
+
+
 class Vocabulary(Plugin):
     @override
     def on_transcribed(self, t: str) -> str:
-        return PATTERN.sub(lambda m: WORDS[m[0].lower()], t)
+        """Return the text with the misheard words fixed."""
+        return PATTERN.sub(corrected, t)
 ```
 
 ### Sound like a chat message
@@ -103,6 +111,7 @@ from kiku_sidecar import Plugin
 class ChatVoice(Plugin):
     @override
     def on_cleaned(self, t: str) -> str:
+        """Return the text with no capital at the start and no full stop at the end."""
         t = t.removesuffix(".")
         return t[:1].lower() + t[1:]
 ```
@@ -123,11 +132,13 @@ class Verbatim(Plugin):
 
     @override
     def on_transcribed(self, t: str) -> str:
+        """Keep what was said, and pass it on."""
         self.raw = t
         return t
 
     @override
     def on_cleaned(self, t: str) -> str:
+        """Return what was said after "verbatim", when that came first."""
         first, _, rest = self.raw.partition(" ")
         if first.strip(",.").lower() == "verbatim":
             return rest
@@ -150,11 +161,13 @@ class RawLog(Plugin):
 
     @override
     def on_transcribed(self, t: str) -> str:
+        """Keep what was said, and pass it on."""
         self.raw = t
         return t
 
     @override
     def on_sent(self, t: str) -> str:
+        """Return what was said, as the log entry."""
         return self.raw
 ```
 
@@ -170,6 +183,7 @@ from kiku_sidecar import Plugin
 class TimedLog(Plugin):
     @override
     def on_sent(self, t: str) -> str:
+        """Return the text with the time in front."""
         return f"{datetime.now():%H:%M} {t}"
 ```
 
@@ -185,6 +199,7 @@ from kiku_sidecar import Plugin
 class Private(Plugin):
     @override
     def on_sent(self, t: str) -> str:
+        """Return an empty string for a dictation that starts with "private"."""
         if re.match(r"private\b", t, re.IGNORECASE):
             return ""
         return t
@@ -207,6 +222,7 @@ ARCHIVE = Path.home() / "Documents/Dictations.txt"
 class Archive(Plugin):
     @override
     def on_done(self, t: str) -> str:
+        """Add the text to the archive with the date and time."""
         one_line = " ".join(t.split())
         entry = f"{datetime.now():%Y-%m-%d %H:%M}  {one_line}\n"
         with ARCHIVE.open("a", encoding="utf-8") as f:
@@ -239,6 +255,7 @@ URL = "http://127.0.0.1:8080/polish"
 class Polish(Plugin):
     @override
     def on_cleaned(self, t: str) -> str:
+        """Return the text as the service polished it, or as it was when there is no answer."""
         body = json.dumps({"text": t}).encode()
         request = urllib.request.Request(URL, body)
         try:
@@ -271,6 +288,7 @@ from kiku_sidecar import Plugin
 class Offline(Plugin):
     @override
     def on_error(self, e: Exception) -> str | Exception:
+        """Return an empty message for a network failure, and pass on any other."""
         if isinstance(getattr(e, "reason", e), ConnectionError):
             return ""
         return e
