@@ -4,7 +4,8 @@ from typing import override
 
 import pytest
 
-from kiku_sidecar import Plugin, lifecycle
+from kiku import Plugin
+from kiku_sidecar import lifecycle
 from kiku_sidecar.lifecycle import (
     Plugins,
     TextPoint,
@@ -20,7 +21,7 @@ from kiku_sidecar.lifecycle import (
 HERE = Path(__file__)
 
 # The first four lines of every hook file written by `plugin_file`, so its methods start on line 5.
-HEADER = "from kiku_sidecar import Plugin\n\n\nclass P(Plugin):\n"
+HEADER = "from kiku import Plugin\n\n\nclass P(Plugin):\n"
 
 
 class Recorder(Plugin):
@@ -91,7 +92,7 @@ def test_loads_plugins_in_filename_order(tmp_path: Path):
 
 def test_two_plugins_in_one_file_run_in_definition_order(tmp_path: Path):
     source = (
-        "from kiku_sidecar import Plugin\n\n\n"
+        "from kiku import Plugin\n\n\n"
         "class Second(Plugin):\n"
         "    def on_cleaned(self, t: str): return t + ' second'\n\n\n"
         "class First(Plugin):\n"
@@ -110,7 +111,7 @@ def test_class_bound_to_two_names_is_instantiated_once(tmp_path: Path):
 
 
 def test_imported_subclass_is_not_instantiated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    shared = "from kiku_sidecar import Plugin\n\n\nclass Shared(Plugin):\n    pass\n"
+    shared = "from kiku import Plugin\n\n\nclass Shared(Plugin):\n    pass\n"
     # A name no other test imports, since the module stays in sys.modules.
     write(tmp_path / "lib/kiku_test_shared_plugin.py", shared)
     monkeypatch.syspath_prepend(tmp_path / "lib")
@@ -191,7 +192,7 @@ def test_state_on_self_persists_between_hooks(tmp_path: Path):
 
 def test_module_level_state_persists_between_hooks(tmp_path: Path):
     source = (
-        "from kiku_sidecar import Plugin\n\n"
+        "from kiku import Plugin\n\n"
         "seen = []\n\n\n"
         "class P(Plugin):\n"
         "    def on_transcribed(self, t: str):\n"

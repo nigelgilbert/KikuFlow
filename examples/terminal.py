@@ -5,7 +5,7 @@ from typing import override
 
 from mlx_lm import generate, load
 
-from kiku_sidecar import Plugin
+from kiku import Plugin
 
 MODEL = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
 WORDS = "terminal|command[- ]?line|shell|bash"

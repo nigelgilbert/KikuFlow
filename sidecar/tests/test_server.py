@@ -21,7 +21,7 @@ RECORDER = """
 import threading
 from pathlib import Path
 
-from kiku_sidecar import Plugin
+from kiku import Plugin
 
 
 def record(point, t):
@@ -49,7 +49,7 @@ class Recorder(Plugin):
 """
 
 # The first four lines of every hook file written by `plugin_file`, so its methods start on line 5.
-HEADER = "from kiku_sidecar import Plugin\n\n\nclass P(Plugin):\n"
+HEADER = "from kiku import Plugin\n\n\nclass P(Plugin):\n"
 
 
 def plugin_file(methods: str) -> str:
@@ -483,7 +483,7 @@ def test_on_error_can_keep_a_failure_after_the_reply_out_of_errors_txt(
 ):
     archive = (
         "import urllib.error\n\n"
-        "from kiku_sidecar import Plugin\n\n\n"
+        "from kiku import Plugin\n\n\n"
         "class Archive(Plugin):\n"
         "    def on_done(self, t):\n"
         "        raise urllib.error.URLError(ConnectionRefusedError())\n"

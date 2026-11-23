@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from kiku_sidecar import Plugin
+from kiku import Plugin
 from kiku_sidecar.lifecycle import load_plugins
 
 README = Path(__file__).parents[2] / "docs/hooks.md"

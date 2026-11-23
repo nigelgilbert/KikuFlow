@@ -27,7 +27,7 @@ A hook is a method of a plugin, a Python class in a file in the hooks folder. It
 ```python
 from typing import override
 
-from kiku_sidecar import Plugin
+from kiku import Plugin
 
 
 class ChatVoice(Plugin):

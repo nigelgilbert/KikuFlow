@@ -4,7 +4,7 @@ from typing import override
 
 from mlx_lm import generate, load
 
-from kiku_sidecar import Plugin
+from kiku import Plugin
 
 MODEL = "mlx-community/Qwen3-4B-Instruct-2507-4bit"
 PROMPT = (

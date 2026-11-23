@@ -11,8 +11,7 @@ from urllib.parse import quote_plus
 
 from mlx_lm import generate, load
 
-from kiku_sidecar import Plugin
-from kiku_sidecar.lifecycle import write_log
+from kiku import Plugin, write_log
 
 MODEL = "mlx-community/Qwen3-4B-Instruct-2507-4bit"
 WORDS = re.compile(r"\b(?:search|google)\b", re.IGNORECASE)

@@ -22,6 +22,9 @@ dev = ["httpx", "pyright", "pytest", "ruff"]
 requires = ["uv_build>=0.9,<0.14"]
 build-backend = "uv_build"
 
+[tool.uv.build-backend]
+module-name = ["kiku_sidecar", "kiku"]
+
 [tool.ruff]
 line-length = 100
 

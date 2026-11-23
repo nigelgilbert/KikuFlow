@@ -16,7 +16,7 @@ Save this as `shout.py` in the hooks folder, `~/Library/Application Support/Kiku
 ```python
 from typing import override
 
-from kiku_sidecar import Plugin
+from kiku import Plugin
 
 
 class Shout(Plugin):
@@ -78,7 +78,7 @@ Each of these is a whole file. The ones that bring their own model are in [examp
 import re
 from typing import override
 
-from kiku_sidecar import Plugin
+from kiku import Plugin
 
 WORDS = {"kiko": "Kiku", "jason": "JSON", "mac os": "macOS"}  # keys in lower case
 ALTERNATIVES = "|".join(map(re.escape, WORDS))
@@ -105,7 +105,7 @@ class Vocabulary(Plugin):
 ```python
 from typing import override
 
-from kiku_sidecar import Plugin
+from kiku import Plugin
 
 
 class ChatVoice(Plugin):
@@ -123,7 +123,7 @@ class ChatVoice(Plugin):
 ```python
 from typing import override
 
-from kiku_sidecar import Plugin
+from kiku import Plugin
 
 
 class Verbatim(Plugin):
@@ -152,7 +152,7 @@ A log entry is whatever `on_sent` returns. `raw_log.py` logs what you said inste
 ```python
 from typing import override
 
-from kiku_sidecar import Plugin
+from kiku import Plugin
 
 
 class RawLog(Plugin):
@@ -177,7 +177,7 @@ class RawLog(Plugin):
 from datetime import datetime
 from typing import override
 
-from kiku_sidecar import Plugin
+from kiku import Plugin
 
 
 class TimedLog(Plugin):
@@ -193,7 +193,7 @@ class TimedLog(Plugin):
 import re
 from typing import override
 
-from kiku_sidecar import Plugin
+from kiku import Plugin
 
 
 class Private(Plugin):
@@ -214,7 +214,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import override
 
-from kiku_sidecar import Plugin
+from kiku import Plugin
 
 ARCHIVE = Path.home() / "Documents/Dictations.txt"
 
@@ -247,7 +247,7 @@ import json
 import urllib.request
 from typing import override
 
-from kiku_sidecar import Plugin
+from kiku import Plugin
 
 URL = "http://127.0.0.1:8080/polish"
 
@@ -282,7 +282,7 @@ class Polish(Plugin):
 ```python
 from typing import override
 
-from kiku_sidecar import Plugin
+from kiku import Plugin
 
 
 class Offline(Plugin):
