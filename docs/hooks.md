@@ -1,6 +1,6 @@
 # Lifecycle hooks
 
-A hook is a Python function that Kiku Flow calls at a fixed point in the dictation pipeline. Its input is the last step's text and its output is the next step's text:
+A hook is a method of a plugin, a Python class in a file of yours, and Kiku Flow calls it at a fixed point in the dictation pipeline. A hook's input is the last step's text and its output is the next step's text:
 
 ```mermaid
 flowchart LR
@@ -14,13 +14,20 @@ flowchart LR
 Save this as `shout.py` in the hooks folder, `~/Library/Application Support/KikuFlow/hooks/`:
 
 ```python
-def on_cleaned(t):
-    return t.upper()
+from typing import override
+
+from kiku_sidecar import Plugin
+
+
+class Shout(Plugin):
+    @override
+    def on_cleaned(self, t: str) -> str:
+        return t.upper()
 ```
 
 Choose "Reload Kiku Flow" in the menu and dictate something. EVERYTHING YOU SAY IS NOW PASTED LIKE THIS. Delete the file and reload when the joke wears off.
 
-Kiku Flow loads every `*.py` file in that folder. A build from source links the folder to `hooks/` in the repo, unless the folder is already there, as after an install. It looks in each file for the five names below. The rest of the file is yours: imports, constants, helpers. Reload after every edit.
+Kiku Flow loads every `*.py` file in that folder. A build from source links the folder to `hooks/` in the repo, unless the folder is already there, as after an install. In each file it makes one of every `Plugin` subclass the file defines, with no arguments, and calls the hooks each one overrides from the five below. A hook a plugin leaves alone passes its input on. `@override` changes nothing when the hook runs, but it lets your editor catch a misspelt hook name. The rest of the file is yours: imports, constants, helpers, more classes. Reload after every edit.
 
 ## The five hooks
 
@@ -46,13 +53,13 @@ If you said nothing, no hooks fire.
 
 ## More than one file
 
-Files load in filename order and their hooks run in that order, each getting what the one before it returned.
+Files load in filename order, and the plugins in a file in the order it defines them. Hooks run in that order, each getting what the one before it returned.
 
-A file runs once, when the app starts. Anything at module level stays put between dictations: a variable that `on_transcribed` sets is still there for `on_cleaned`, and a model loaded at the top of the file stays loaded.
+A file runs once, when the app starts, and its plugins are made then. Each plugin stays put between dictations, so an attribute that `on_transcribed` sets on `self` is still there for `on_cleaned`. Module-level state stays put too, and a model loaded at the top of the file stays loaded.
 
 Hooks run in the speech engine's own Python, so they can import the standard library and what the engine ships with, mlx-lm and NumPy included. Nothing else: that Python is re-synced at every launch, and a package you install into it is removed.
 
-A file that fails to import stops the app from loading. You get the warning triangle, and "Open Errors" shows something like `hook file voice.py: ModuleNotFoundError: …`. Fix the file and reload.
+A file that fails to import, or a plugin whose `__init__` fails, stops the app from loading. You get the warning triangle, and "Open Errors" shows something like `hook file voice.py: ModuleNotFoundError: …`. Fix the file and reload.
 
 ## Performance Considerations
 
@@ -68,13 +75,19 @@ Each of these is a whole file. The ones that bring their own model are in [examp
 
 ```python
 import re
+from typing import override
+
+from kiku_sidecar import Plugin
 
 WORDS = {"kiko": "Kiku", "jason": "JSON", "mac os": "macOS"}  # keys in lower case
-PATTERN = re.compile(r"\b(" + "|".join(map(re.escape, WORDS)) + r")\b", re.IGNORECASE)
+ALTERNATIVES = "|".join(map(re.escape, WORDS))
+PATTERN = re.compile(rf"\b({ALTERNATIVES})\b", re.IGNORECASE)
 
 
-def on_transcribed(t):
-    return PATTERN.sub(lambda m: WORDS[m[0].lower()], t)
+class Vocabulary(Plugin):
+    @override
+    def on_transcribed(self, t: str) -> str:
+        return PATTERN.sub(lambda m: WORDS[m[0].lower()], t)
 ```
 
 ### Sound like a chat message
@@ -82,9 +95,16 @@ def on_transcribed(t):
 `voice.py` drops the capital at the start and the full stop at the end.
 
 ```python
-def on_cleaned(t):
-    t = t.removesuffix(".")
-    return t[:1].lower() + t[1:]
+from typing import override
+
+from kiku_sidecar import Plugin
+
+
+class ChatVoice(Plugin):
+    @override
+    def on_cleaned(self, t: str) -> str:
+        t = t.removesuffix(".")
+        return t[:1].lower() + t[1:]
 ```
 
 ### Paste the raw transcript
@@ -92,20 +112,26 @@ def on_cleaned(t):
 `verbatim.py` pastes what you said, word for word, when you start with "verbatim". The cleanup still runs; its result is dropped. The file sorts before `vocabulary.py`, so the transcript it keeps is the one from before the vocabulary fixes.
 
 ```python
-raw = ""
+from typing import override
+
+from kiku_sidecar import Plugin
 
 
-def on_transcribed(t):
-    global raw
-    raw = t
-    return t
+class Verbatim(Plugin):
+    def __init__(self) -> None:
+        self.raw = ""
 
+    @override
+    def on_transcribed(self, t: str) -> str:
+        self.raw = t
+        return t
 
-def on_cleaned(t):
-    first, _, rest = raw.partition(" ")
-    if first.strip(",.").lower() == "verbatim":
-        return rest
-    return t
+    @override
+    def on_cleaned(self, t: str) -> str:
+        first, _, rest = self.raw.partition(" ")
+        if first.strip(",.").lower() == "verbatim":
+            return rest
+        return t
 ```
 
 ### Choose what goes in the log
@@ -113,39 +139,55 @@ def on_cleaned(t):
 A log entry is whatever `on_sent` returns. `raw_log.py` logs what you said instead of the cleaned text.
 
 ```python
-raw = ""
+from typing import override
+
+from kiku_sidecar import Plugin
 
 
-def on_transcribed(t):
-    global raw
-    raw = t
-    return t
+class RawLog(Plugin):
+    def __init__(self) -> None:
+        self.raw = ""
 
+    @override
+    def on_transcribed(self, t: str) -> str:
+        self.raw = t
+        return t
 
-def on_sent(t):
-    return raw
+    @override
+    def on_sent(self, t: str) -> str:
+        return self.raw
 ```
 
 `timed_log.py` puts the time on each entry.
 
 ```python
 from datetime import datetime
+from typing import override
+
+from kiku_sidecar import Plugin
 
 
-def on_sent(t):
-    return f"{datetime.now():%H:%M} {t}"
+class TimedLog(Plugin):
+    @override
+    def on_sent(self, t: str) -> str:
+        return f"{datetime.now():%H:%M} {t}"
 ```
 
 `private.py` keeps a dictation that starts with "private" out of the log. It is still pasted.
 
 ```python
 import re
+from typing import override
+
+from kiku_sidecar import Plugin
 
 
-def on_sent(t):
-    if re.match(r"private\b", t, re.IGNORECASE):
-        return ""
-    return t
+class Private(Plugin):
+    @override
+    def on_sent(self, t: str) -> str:
+        if re.match(r"private\b", t, re.IGNORECASE):
+            return ""
+        return t
 ```
 
 ### Keep your own archive
@@ -155,14 +197,21 @@ The log holds the last 100 dictations. `archive.py` keeps every one, with the da
 ```python
 from datetime import datetime
 from pathlib import Path
+from typing import override
+
+from kiku_sidecar import Plugin
 
 ARCHIVE = Path.home() / "Documents/Dictations.txt"
 
 
-def on_done(t):
-    with ARCHIVE.open("a", encoding="utf-8") as f:
-        f.write(f"{datetime.now():%Y-%m-%d %H:%M}  {' '.join(t.split())}\n")
-    return t
+class Archive(Plugin):
+    @override
+    def on_done(self, t: str) -> str:
+        one_line = " ".join(t.split())
+        entry = f"{datetime.now():%Y-%m-%d %H:%M}  {one_line}\n"
+        with ARCHIVE.open("a", encoding="utf-8") as f:
+            f.write(entry)
+        return t
 ```
 
 ## When a hook fails
@@ -180,17 +229,23 @@ So a hook that calls something that can fail should catch its own errors and ret
 ```python
 import json
 import urllib.request
+from typing import override
+
+from kiku_sidecar import Plugin
 
 URL = "http://127.0.0.1:8080/polish"
 
 
-def on_cleaned(t):
-    request = urllib.request.Request(URL, json.dumps({"text": t}).encode())
-    try:
-        with urllib.request.urlopen(request, timeout=5) as response:
-            return json.load(response)["text"]
-    except OSError:
-        return t
+class Polish(Plugin):
+    @override
+    def on_cleaned(self, t: str) -> str:
+        body = json.dumps({"text": t}).encode()
+        request = urllib.request.Request(URL, body)
+        try:
+            with urllib.request.urlopen(request, timeout=5) as response:
+                return json.load(response)["text"]
+        except OSError:
+            return t
 ```
 
 ## on_error
@@ -203,15 +258,22 @@ def on_cleaned(t):
 | `""` | No message: nothing in the HUD, nothing in `errors.txt`. |
 | `e` | The hook passes. The next `on_error` hook is asked, and the default message is used when none is left. |
 
-`on_error` hooks run in filename order and the first to return a string decides. One that fails, by raising or by returning anything but a string or `e`, is skipped, and its own failure goes in `errors.txt`. With no `on_error` hook, or none that returns a string, the default message is used.
+`on_error` hooks run in the same order as the others, and the first to return a string decides. One that fails, by raising or by returning anything but a string or `e`, is skipped, and its own failure goes in `errors.txt`. With no `on_error` hook, or none that returns a string, the default message is used.
 
 `offline.py` keeps network failures out of `errors.txt`, for a hook that posts somewhere and doesn't catch its own errors. `urllib` wraps the `ConnectionError` in `e.reason`. Before the paste this is a silent failure: nothing is pasted and nothing says why.
 
 ```python
-def on_error(e):
-    if isinstance(getattr(e, "reason", e), ConnectionError):
-        return ""
-    return e
+from typing import override
+
+from kiku_sidecar import Plugin
+
+
+class Offline(Plugin):
+    @override
+    def on_error(self, e: Exception) -> str | Exception:
+        if isinstance(getattr(e, "reason", e), ConnectionError):
+            return ""
+        return e
 ```
 
 Two failures never reach `on_error`: the models or a hook file failing to load, and the engine crashing. Both go in `errors.txt`, a run of crashes once.

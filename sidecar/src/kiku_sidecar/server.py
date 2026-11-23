@@ -21,12 +21,12 @@ from .cleanup import Cleaner, load_cleaner
 from .config import Config, load_config
 from .lifecycle import (
     HOOK_DIR,
-    Hooks,
+    Plugins,
     default_message,
     fire,
     fire_done,
     labelled,
-    load_hooks,
+    load_plugins,
     report,
     write_error,
     write_log,
@@ -44,7 +44,7 @@ class Models:
     config: Config
     transcribe: Transcriber
     clean: Cleaner
-    hooks: Hooks
+    plugins: Plugins
 
 
 @dataclass
@@ -57,9 +57,9 @@ state = State()
 
 
 def load_models() -> None:
-    hooks = None
+    plugins = None
     try:
-        hooks = load_hooks(HOOK_DIR)  # first, so a broken hook file fails in milliseconds
+        plugins = load_plugins(HOOK_DIR)  # first, so a broken hook file fails in milliseconds
         config = load_config()
         transcribe = load_transcriber(config.stt_engine, config.stt_model)
         clean = load_cleaner(config)
@@ -69,11 +69,11 @@ def load_models() -> None:
     except Exception as e:
         log.exception("model load failed")
         # Only a hook file's failure carries a label.
-        error = default_message(e) if hooks is None else f"{type(e).__name__}: {e}"
+        error = default_message(e) if plugins is None else f"{type(e).__name__}: {e}"
         state.models, state.error = None, error
         write_error(error)
         return
-    state.models, state.error = Models(config, transcribe, clean, hooks), None
+    state.models, state.error = Models(config, transcribe, clean, plugins), None
 
 
 def start_loading() -> None:
@@ -110,8 +110,8 @@ def run(audio: np.ndarray) -> tuple[dict, Callable[[], None]]:
     try:
         reply = process(m, audio)
     except Exception as e:
-        raise HTTPException(500, report(m.hooks, e)) from e
-    return reply, partial(after_reply, m.hooks, reply["clean"])
+        raise HTTPException(500, report(m.plugins, e)) from e
+    return reply, partial(after_reply, m.plugins, reply["clean"])
 
 
 def process(m: Models, audio: np.ndarray) -> dict:
@@ -120,12 +120,12 @@ def process(m: Models, audio: np.ndarray) -> dict:
     with labelled("speech recognition"):
         raw = m.transcribe(audio) if len(audio) >= SAMPLE_RATE // 10 else ""
     transcribed = time.perf_counter()
-    text = fire(m.hooks, "on_transcribed", raw)
+    text = fire(m.plugins, "on_transcribed", raw)
     if text:
         with labelled("cleanup model"):
             # An empty cleanup keeps the transcript.
             text = m.clean(text) or text
-    text = fire(m.hooks, "on_cleaned", text)
+    text = fire(m.plugins, "on_cleaned", text)
     cleaned = time.perf_counter()
     return {
         "raw": raw,
@@ -137,16 +137,16 @@ def process(m: Models, audio: np.ndarray) -> dict:
     }
 
 
-def after_reply(hooks: Hooks, text: str) -> None:
+def after_reply(plugins: Plugins, text: str) -> None:
     try:
-        text = fire(hooks, "on_sent", text)
+        text = fire(plugins, "on_sent", text)
         if not text.strip():
             return
         with labelled("log write"):
             write_log(text)
-        fire_done(hooks, text)
+        fire_done(plugins, text)
     except Exception as e:
-        report(hooks, e)
+        report(plugins, e)
 
 
 async def on_executor[T](fn: Callable[[], T]) -> T:

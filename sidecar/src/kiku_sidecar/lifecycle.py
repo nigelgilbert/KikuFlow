@@ -1,4 +1,4 @@
-"""The on_* hooks of plain .py files, the log and errors.txt."""
+"""The plugins in plain .py files and their on_* hooks, the log and errors.txt."""
 
 import logging
 import runpy
@@ -7,21 +7,63 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from .config import APP_DIR
 
 log = logging.getLogger(__name__)
 
-POINTS = ("on_transcribed", "on_cleaned", "on_sent", "on_done")
 HOOK_DIR = APP_DIR / "hooks"
 LOG_FILE = APP_DIR / "log.txt"
 ERRORS = APP_DIR / "errors.txt"
 
+# The `__module__` of a class that a file run by `runpy.run_path` defines.
+RUN_PATH_MODULE = "<run_path>"
+
 type Hook = Callable[[str], str]
 type ErrorHook = Callable[[Exception], str | Exception]
-# The hooks of each point with their files: a Hook, or an ErrorHook under "on_error".
-type Hooks = dict[str, list[tuple[Path, Callable[[Any], Any]]]]
+
+
+class Plugin:
+    """Change a dictation at the points whose hooks a subclass overrides.
+
+    Every hook passes its input on unchanged until it is overridden.
+    """
+
+    def on_transcribed(self, t: str) -> str:
+        """Return the text the cleanup model sees, given what speech recognition heard.
+
+        An empty string stops the dictation, and nothing is pasted or logged.
+        """
+        return t
+
+    def on_cleaned(self, t: str) -> str:
+        """Return the text to paste, given what the cleanup model wrote.
+
+        An empty string stops the dictation, and nothing is pasted or logged.
+        """
+        return t
+
+    def on_sent(self, t: str) -> str:
+        """Return the log entry, given the text that has gone off to be pasted.
+
+        An empty string keeps the dictation out of the log, and on_done does not fire.
+        """
+        return t
+
+    def on_done(self, t: str) -> str:
+        """Act on the log entry once it is written, and return it. The return is not used."""
+        return t
+
+    def on_error(self, e: Exception) -> str | Exception:
+        """Return the message for a failure, an empty string for none, or `e` to pass.
+
+        The message is shown in the HUD and kept in errors.txt.
+        """
+        return e
+
+
+# Every plugin in the hook files, with the path of the file that defines it.
+type Plugins = list[tuple[Path, Plugin]]
 
 
 def one_line(text: str) -> str:
@@ -92,16 +134,29 @@ def write_error(message: str) -> None:
         log.exception("errors.txt write failed")
 
 
-def load_hooks(directory: Path) -> Hooks:
-    """Load the hooks of every *.py in `directory`, in filename order."""
-    hooks: Hooks = {point: [] for point in (*POINTS, "on_error")}
+def defined_plugins(names: dict[str, object]) -> list[type[Plugin]]:
+    """Return the Plugin subclasses that a file run by `runpy.run_path` defines, in order.
+
+    `names` is the file's globals. A class the file only imported is left out.
+    """
+    return [
+        value
+        for value in names.values()
+        if isinstance(value, type)
+        and issubclass(value, Plugin)
+        and value.__module__ == RUN_PATH_MODULE
+    ]
+
+
+def load_plugins(directory: Path) -> Plugins:
+    """Return a new instance of each plugin in every *.py in `directory`, in filename order."""
+    plugins: Plugins = []
     for path in sorted(directory.glob("*.py")):
         with labelled(f"hook file {path.name}"):
-            names = runpy.run_path(str(path))
-        for point in hooks:
-            if point in names:
-                hooks[point].append((path, names[point]))
-    return hooks
+            names = runpy.run_path(str(path), run_name=RUN_PATH_MODULE)
+            classes = defined_plugins(names)
+            plugins += [(path, plugin_class()) for plugin_class in classes]
+    return plugins
 
 
 def call(point: str, path: Path, hook: Hook, text: str) -> str:
@@ -122,29 +177,30 @@ def call_error(path: Path, hook: ErrorHook, e: Exception) -> str | Exception:
         return result
 
 
-def fire(hooks: Hooks, point: str, text: str) -> str:
-    """Run the hooks for `point` in order while there is text. Each hook's str replaces it."""
-    for path, hook in hooks[point]:
+def fire(plugins: Plugins, point: str, text: str) -> str:
+    """Run each plugin's hook for `point` in order while there is text. Each str replaces it."""
+    for path, plugin in plugins:
         if not text:
             break
+        hook: Hook = getattr(plugin, point)
         text = call(point, path, hook, text)
     return text
 
 
-def fire_done(hooks: Hooks, text: str) -> None:
-    """Run every on_done hook with `text`. What a hook returns is not used."""
-    for path, hook in hooks["on_done"]:
-        call("on_done", path, hook, text)
+def fire_done(plugins: Plugins, text: str) -> None:
+    """Run each plugin's on_done hook with `text`. What a hook returns is not used."""
+    for path, plugin in plugins:
+        call("on_done", path, plugin.on_done, text)
 
 
-def hook_message(hooks: Hooks, e: Exception) -> str | None:
-    """Return the first message an on_error hook gives for `e`, or None.
+def hook_message(plugins: Plugins, e: Exception) -> str | None:
+    """Return the first message a plugin's on_error hook gives for `e`, or None.
 
     A hook that returns `e` passes it on. One that fails is recorded and skipped.
     """
-    for path, hook in hooks["on_error"]:
+    for path, plugin in plugins:
         try:
-            result = call_error(path, hook, e)
+            result = call_error(path, plugin.on_error, e)
         except Exception as failure:
             log.error("on_error hook failed", exc_info=failure)
             write_error(default_message(failure))
@@ -154,11 +210,11 @@ def hook_message(hooks: Hooks, e: Exception) -> str | None:
     return None
 
 
-def report(hooks: Hooks, e: Exception) -> str:
+def report(plugins: Plugins, e: Exception) -> str:
     """Write the message for `e` to errors.txt, unless it is empty, and return it."""
     log.error("dictation failed", exc_info=e)
     default = default_message(e)
-    message = hook_message(hooks, e)
+    message = hook_message(plugins, e)
     if message is None:
         message = default
     if message:
