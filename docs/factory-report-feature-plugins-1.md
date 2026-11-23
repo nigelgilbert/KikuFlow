@@ -78,3 +78,18 @@ From `sidecar/`, at `4ec41bf`:
 - `uv run ruff format --check . ../examples`: 21 files already formatted
 - `uv run pyright`: 0 errors
 - `uv run pytest -q`: 111 passed
+
+## PR feedback
+
+Four nits from a later review of the PR, with the user's read.
+
+| Item | Result | Commit |
+| --- | --- | --- |
+| 1. Old-style hook files load silently and do nothing (`lifecycle.py`, `load_plugins`) | Struck by the user. The plan's "no adapter and no deprecation notice" stands. | |
+| 2. Unguarded parse of the model reply (`examples/translate_ja_es.py:61`) | Fixed: a reply that is not the expected JSON leaves the text as it was. | `2a1594c` |
+| 3. The vocabulary recipe's hook reads from the inside out (`docs/hooks.md:90`) | Fixed: the lambda is now a named helper, `corrected`. | `2a1594c` |
+| 4. Recipe hooks have no docstrings (`docs/hooks.md`, `README.md`) | Folded in as one line per hook. | `2a1594c` |
+
+Left as it was: in `translate_ja_es.py`, the `re.split` after the parse still raises when the language the model names is not in the text word for word. It was outside item 2.
+
+Checks at `2a1594c`, from `sidecar/`: ruff clean, pyright 0 errors, pytest 111 passed.
