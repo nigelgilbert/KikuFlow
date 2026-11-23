@@ -20,9 +20,10 @@ from kiku import Plugin
 
 
 class Shout(Plugin):
+    """Paste every dictation in capitals."""
+
     @override
     def on_cleaned(self, t: str) -> str:
-        """Return the text in capitals."""
         return t.upper()
 ```
 
@@ -92,9 +93,10 @@ def corrected(match: re.Match[str]) -> str:
 
 
 class Vocabulary(Plugin):
+    """Fix the words that speech recognition gets wrong."""
+
     @override
     def on_transcribed(self, t: str) -> str:
-        """Return the text with the misheard words fixed."""
         return PATTERN.sub(corrected, t)
 ```
 
@@ -109,9 +111,10 @@ from kiku import Plugin
 
 
 class ChatVoice(Plugin):
+    """Paste with no capital at the start and no full stop at the end."""
+
     @override
     def on_cleaned(self, t: str) -> str:
-        """Return the text with no capital at the start and no full stop at the end."""
         t = t.removesuffix(".")
         return t[:1].lower() + t[1:]
 ```
@@ -127,18 +130,18 @@ from kiku import Plugin
 
 
 class Verbatim(Plugin):
+    """Paste what you said, word for word, when you start with "verbatim"."""
+
     def __init__(self) -> None:
         self.raw = ""
 
     @override
     def on_transcribed(self, t: str) -> str:
-        """Keep what was said, and pass it on."""
         self.raw = t
         return t
 
     @override
     def on_cleaned(self, t: str) -> str:
-        """Return what was said after "verbatim", when that came first."""
         first, _, rest = self.raw.partition(" ")
         if first.strip(",.").lower() == "verbatim":
             return rest
@@ -156,18 +159,18 @@ from kiku import Plugin
 
 
 class RawLog(Plugin):
+    """Log what you said instead of the cleaned text."""
+
     def __init__(self) -> None:
         self.raw = ""
 
     @override
     def on_transcribed(self, t: str) -> str:
-        """Keep what was said, and pass it on."""
         self.raw = t
         return t
 
     @override
     def on_sent(self, t: str) -> str:
-        """Return what was said, as the log entry."""
         return self.raw
 ```
 
@@ -181,9 +184,10 @@ from kiku import Plugin
 
 
 class TimedLog(Plugin):
+    """Put the time on each log entry."""
+
     @override
     def on_sent(self, t: str) -> str:
-        """Return the text with the time in front."""
         return f"{datetime.now():%H:%M} {t}"
 ```
 
@@ -197,9 +201,10 @@ from kiku import Plugin
 
 
 class Private(Plugin):
+    """Keep a dictation that starts with "private" out of the log."""
+
     @override
     def on_sent(self, t: str) -> str:
-        """Return an empty string for a dictation that starts with "private"."""
         if re.match(r"private\b", t, re.IGNORECASE):
             return ""
         return t
@@ -220,9 +225,10 @@ ARCHIVE = Path.home() / "Documents/Dictations.txt"
 
 
 class Archive(Plugin):
+    """Keep every dictation in a file, with the date and time."""
+
     @override
     def on_done(self, t: str) -> str:
-        """Add the text to the archive with the date and time."""
         one_line = " ".join(t.split())
         entry = f"{datetime.now():%Y-%m-%d %H:%M}  {one_line}\n"
         with ARCHIVE.open("a", encoding="utf-8") as f:
@@ -253,9 +259,10 @@ URL = "http://127.0.0.1:8080/polish"
 
 
 class Polish(Plugin):
+    """Paste the text as a service polished it, or as it was when there is no answer."""
+
     @override
     def on_cleaned(self, t: str) -> str:
-        """Return the text as the service polished it, or as it was when there is no answer."""
         body = json.dumps({"text": t}).encode()
         request = urllib.request.Request(URL, body)
         try:
@@ -286,9 +293,10 @@ from kiku import Plugin
 
 
 class Offline(Plugin):
+    """Keep network failures out of errors.txt."""
+
     @override
     def on_error(self, e: Exception) -> str | Exception:
-        """Return an empty message for a network failure, and pass on any other."""
         if isinstance(getattr(e, "reason", e), ConnectionError):
             return ""
         return e

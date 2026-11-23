@@ -31,9 +31,10 @@ from kiku import Plugin
 
 
 class ChatVoice(Plugin):
+    """Paste with no capital at the start and no full stop at the end."""
+
     @override
     def on_cleaned(self, t: str) -> str:
-        """Return the text with no capital at the start and no full stop at the end."""
         t = t.removesuffix(".")
         first, rest = t[:1], t[1:]
         return first.lower() + rest
