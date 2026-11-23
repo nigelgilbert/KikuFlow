@@ -2,8 +2,11 @@
 
 import re
 import subprocess
+from typing import override
 
 from mlx_lm import generate, load
+
+from kiku_sidecar import Plugin
 
 MODEL = "mlx-community/Qwen3-4B-Instruct-2507-4bit"
 PREFIX = re.compile(r"\W*(?:Macintosh|Mac)\b", re.IGNORECASE)
@@ -52,18 +55,20 @@ def prompt(system: str, text: str, examples: tuple[tuple[str, str], ...] = ()) -
     return generate(model, tokenizer, chat, max_tokens=max_tokens).strip()
 
 
-def on_transcribed(t: str) -> str:
-    """Run the command that was asked for, and stop the dictation."""
-    if not PREFIX.match(t):
-        return t
-    name = prompt(PARSE, t, EXAMPLES)
-    if name == "none":
-        return t
-    if name.startswith("open "):
-        argv = ["open", "-a", name.removeprefix("open ")]
-    elif name.startswith("close "):
-        argv = [*QUIT, name.removeprefix("close ")]
-    else:
-        argv = COMMANDS[name]
-    subprocess.run(argv, check=True)
-    return ""
+class MacCommands(Plugin):
+    @override
+    def on_transcribed(self, t: str) -> str:
+        """Run the command that was asked for, and stop the dictation."""
+        if not PREFIX.match(t):
+            return t
+        name = prompt(PARSE, t, EXAMPLES)
+        if name == "none":
+            return t
+        if name.startswith("open "):
+            argv = ["open", "-a", name.removeprefix("open ")]
+        elif name.startswith("close "):
+            argv = [*QUIT, name.removeprefix("close ")]
+        else:
+            argv = COMMANDS[name]
+        subprocess.run(argv, check=True)
+        return ""

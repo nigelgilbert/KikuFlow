@@ -2,8 +2,11 @@
 
 import json
 import re
+from typing import override
 
 from mlx_lm import generate, load
+
+from kiku_sidecar import Plugin
 
 MODEL = "mlx-community/Qwen3-4B-Instruct-2507-4bit"
 PARSE = (
@@ -30,7 +33,6 @@ TRANSLATE = (
 )
 
 model, tokenizer = load(MODEL)[:2]
-language = None
 
 
 def prompt(system: str, text: str, examples: tuple[tuple[str, str], ...] = ()) -> str:
@@ -45,25 +47,30 @@ def prompt(system: str, text: str, examples: tuple[tuple[str, str], ...] = ()) -
     return generate(model, tokenizer, chat, max_tokens=max_tokens).strip()
 
 
-def on_transcribed(t: str) -> str:
-    """Take the request out, so the cleanup model sees only the text."""
-    global language
-    language = None
-    if not LANGUAGES.search(t):
-        return t
-    reply = prompt(PARSE, t, EXAMPLES)
-    asked = json.loads(reply)["language"]
-    if not asked:
-        return t
-    before, after = re.split(asked, t, maxsplit=1, flags=re.IGNORECASE)
-    language = asked
-    said_after = after.strip(PUNCTUATION)
-    said_before = LEAD_IN.sub("", before).strip(PUNCTUATION)
-    return said_after or said_before
+class Translate(Plugin):
+    def __init__(self) -> None:
+        self.language: str | None = None
 
+    @override
+    def on_transcribed(self, t: str) -> str:
+        """Take the request out, so the cleanup model sees only the text."""
+        self.language = None
+        if not LANGUAGES.search(t):
+            return t
+        reply = prompt(PARSE, t, EXAMPLES)
+        asked = json.loads(reply)["language"]
+        if not asked:
+            return t
+        before, after = re.split(asked, t, maxsplit=1, flags=re.IGNORECASE)
+        self.language = asked
+        said_after = after.strip(PUNCTUATION)
+        said_before = LEAD_IN.sub("", before).strip(PUNCTUATION)
+        return said_after or said_before
 
-def on_cleaned(t: str) -> str:
-    """Return the text in the language that was asked for."""
-    if not language:
-        return t
-    return prompt(TRANSLATE.format(language), t) or t
+    @override
+    def on_cleaned(self, t: str) -> str:
+        """Return the text in the language that was asked for."""
+        if not self.language:
+            return t
+        system = TRANSLATE.format(self.language)
+        return prompt(system, t) or t

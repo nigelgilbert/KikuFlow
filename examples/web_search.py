@@ -6,10 +6,12 @@ Nothing is pasted. What you said goes in the log, to copy from if a search was n
 import json
 import re
 import subprocess
+from typing import override
 from urllib.parse import quote_plus
 
 from mlx_lm import generate, load
 
+from kiku_sidecar import Plugin
 from kiku_sidecar.lifecycle import write_log
 
 MODEL = "mlx-community/Qwen3-4B-Instruct-2507-4bit"
@@ -45,19 +47,21 @@ def prompt(system: str, text: str, examples: tuple[tuple[str, str], ...] = ()) -
     return generate(model, tokenizer, chat, max_tokens=max_tokens).strip()
 
 
-def on_transcribed(t: str) -> str:
-    """Log the text, open the search in the browser that was named, and stop the dictation."""
-    if not WORDS.search(t):
-        return t
-    write_log(t)
-    reply = prompt(PARSE, t, EXAMPLES)
-    try:
-        parsed = json.loads(reply)
-        url = URL + quote_plus(parsed["query"])
-        app = BROWSERS.get(parsed["browser"])
-    except ValueError, KeyError, TypeError:
-        url = URL + quote_plus(t)
-        app = None
-    argv = ["open", "-a", app, url] if app else ["open", url]
-    subprocess.run(argv, check=True)
-    return ""
+class WebSearch(Plugin):
+    @override
+    def on_transcribed(self, t: str) -> str:
+        """Log the text, open the search in the browser that was named, and stop the dictation."""
+        if not WORDS.search(t):
+            return t
+        write_log(t)
+        reply = prompt(PARSE, t, EXAMPLES)
+        try:
+            parsed = json.loads(reply)
+            url = URL + quote_plus(parsed["query"])
+            app = BROWSERS.get(parsed["browser"])
+        except ValueError, KeyError, TypeError:
+            url = URL + quote_plus(t)
+            app = None
+        argv = ["open", "-a", app, url] if app else ["open", url]
+        subprocess.run(argv, check=True)
+        return ""
