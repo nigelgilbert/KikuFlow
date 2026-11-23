@@ -50,3 +50,31 @@ None.
 ### Split
 
 None.
+
+## Fix pass 1
+
+Pass base `2335c09`. All seven nits were folded in, with no pushback.
+
+| Item | Result | Commit |
+| --- | --- | --- |
+| 1. De-duplicate aliased plugin classes | Folded in, with a new test for `Alias = P`. | `e910dc1` |
+| 2. Docs-block test accepts a plugin that overrides nothing | Folded in: some loaded plugin must override a hook. | `b907108` |
+| 3. "Runs once" leaves out reload | Folded in. | `4ec41bf` |
+| 4. `fire` takes any string | Folded in as `type TextPoint = Literal[...]`. `call` keeps `str` because it also handles `on_done`. | `e910dc1` |
+| 5. `shared` left in `sys.modules` | Folded in with a module name nothing else imports. | `b907108` |
+| 6. `Empty` docstring | Folded in. | `b907108` |
+| 7. `load_plugins` docstring | Folded in. | `e910dc1` |
+
+## Open items
+
+- The gitignored local `hooks/` folder, which the installed app's hooks folder links to, still holds old-style `mac_commands.py`, `terminal.py` and `web_search.py`. They load no plugins on this branch until they are replaced with the ported files in `examples/`.
+- CI runs only pytest. Pyright, which now covers `examples/`, runs locally.
+
+## Tests
+
+From `sidecar/`, at `4ec41bf`:
+
+- `uv run ruff check . ../examples`: all checks passed
+- `uv run ruff format --check . ../examples`: 21 files already formatted
+- `uv run pyright`: 0 errors
+- `uv run pytest -q`: 111 passed
