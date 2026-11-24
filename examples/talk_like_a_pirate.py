@@ -2,9 +2,7 @@
 
 from typing import override
 
-from mlx_lm import generate, load
-
-from kiku import Plugin
+from kiku import Plugin, load_model
 
 MODEL = "mlx-community/Qwen3-4B-Instruct-2507-4bit"
 PROMPT = (
@@ -15,15 +13,9 @@ PROMPT = (
 
 class Pirate(Plugin):
     def __init__(self) -> None:
-        self.model, self.tokenizer = load(MODEL)[:2]
+        self.model = load_model(MODEL)
 
     @override
     def on_cleaned(self, t: str) -> str:
         """Return the text the way a pirate would say it."""
-        messages = [{"role": "system", "content": PROMPT}, {"role": "user", "content": t}]
-        chat = self.tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True, tokenize=False
-        )
-        max_tokens = 4 * len(self.tokenizer.encode(t)) + 64
-        reply = generate(self.model, self.tokenizer, chat, max_tokens=max_tokens)
-        return reply.strip() or t
+        return self.model.prompt(PROMPT, t) or t
