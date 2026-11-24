@@ -110,6 +110,12 @@ def test_class_bound_to_two_names_is_instantiated_once(tmp_path: Path):
     assert fire(load_plugins(tmp_path), "on_cleaned", "hello") == "hello!"
 
 
+def test_class_the_file_leaves_unbound_is_still_a_plugin(tmp_path: Path):
+    source = plugin_file("def on_cleaned(self, t: str): return t + '!'") + "\n\ndel P\n"
+    write(tmp_path / "a.py", source)
+    assert fire(load_plugins(tmp_path), "on_cleaned", "hello") == "hello!"
+
+
 def test_imported_subclass_is_not_instantiated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     shared = "from kiku import Plugin\n\n\nclass Shared(Plugin):\n    pass\n"
     # A name no other test imports, since the module stays in sys.modules.

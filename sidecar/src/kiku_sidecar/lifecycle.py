@@ -17,8 +17,8 @@ HOOK_DIR = APP_DIR / "hooks"
 LOG_FILE = APP_DIR / "log.txt"
 ERRORS = APP_DIR / "errors.txt"
 
-# The `__module__` of a class that a file run by `runpy.run_path` defines.
-RUN_PATH_MODULE = "<run_path>"
+# The `__name__` a hook file runs under, and so the `__module__` of a class it defines.
+HOOK_FILE_MODULE = "<hook file>"
 
 type Hook = Callable[[str], str]
 type ErrorHook = Callable[[Exception], str | Exception]
@@ -31,6 +31,11 @@ class Plugin:
 
     Every hook passes its input on unchanged until it is overridden.
     """
+
+    def __init_subclass__(cls) -> None:
+        """Record the subclass as defined, for `run_hook_file` to find."""
+        super().__init_subclass__()
+        defined_classes.append(cls)
 
     def on_transcribed(self, t: str) -> str:
         """Return the text the cleanup model sees, given what speech recognition heard.
@@ -64,6 +69,9 @@ class Plugin:
         """
         return e
 
+
+# The Plugin subclasses defined since `run_hook_file` last emptied it, in definition order.
+defined_classes: list[type[Plugin]] = []
 
 # Every plugin in the hook files, with the path of the file that defines it.
 type Plugins = list[tuple[Path, Plugin]]
@@ -137,20 +145,14 @@ def write_error(message: str) -> None:
         log.exception("errors.txt write failed")
 
 
-def defined_plugins(names: dict[str, object]) -> list[type[Plugin]]:
-    """Return the Plugin subclasses that a file run by `runpy.run_path` defines, in order.
+def run_hook_file(path: Path) -> list[type[Plugin]]:
+    """Run the file at `path` and return the Plugin subclasses it defines, in order.
 
-    `names` is the file's globals. A class the file only imported is left out, and a class
-    bound to more than one name is returned once.
+    A class from a module the file imports is left out.
     """
-    classes = [
-        value
-        for value in names.values()
-        if isinstance(value, type)
-        and issubclass(value, Plugin)
-        and value.__module__ == RUN_PATH_MODULE
-    ]
-    return list(dict.fromkeys(classes))
+    defined_classes.clear()
+    runpy.run_path(str(path), run_name=HOOK_FILE_MODULE)
+    return [cls for cls in defined_classes if cls.__module__ == HOOK_FILE_MODULE]
 
 
 def load_plugins(directory: Path) -> Plugins:
@@ -158,8 +160,7 @@ def load_plugins(directory: Path) -> Plugins:
     plugins: Plugins = []
     for path in sorted(directory.glob("*.py")):
         with labelled(f"hook file {path.name}"):
-            names = runpy.run_path(str(path), run_name=RUN_PATH_MODULE)
-            classes = defined_plugins(names)
+            classes = run_hook_file(path)
             plugins += [(path, plugin_class()) for plugin_class in classes]
     return plugins
 
