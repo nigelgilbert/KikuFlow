@@ -33,6 +33,6 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pyright]
 # The examples too, so they are checked against `Plugin`.
-include = ["src", "tests", "../examples"]
+include = ["src", "tests", "scripts", "../examples"]
 venvPath = "."
 venv = ".venv"
