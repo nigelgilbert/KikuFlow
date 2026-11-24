@@ -14,12 +14,15 @@ type Corrector = Callable[[str], str]
 def read_terms(path: Path) -> list[str]:
     """Return the terms in the file at `path`, one per line, or none when it is missing.
 
-    Surrounding whitespace is stripped, and blank lines are left out.
+    Surrounding whitespace is stripped, and blank lines are left out. A leading byte order mark
+    is dropped, and a file that is not UTF-8 is an error naming the path.
     """
     try:
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8-sig")
     except FileNotFoundError:
         return []
+    except UnicodeDecodeError as e:
+        raise ValueError(f"{path} is not UTF-8 text") from e
     lines = (line.strip() for line in text.splitlines())
     return [term for term in lines if term]
 
@@ -43,14 +46,15 @@ def load_corrector(terms: list[str]) -> Corrector:
     """
     if not terms:
         return lambda text: text
+    # casefold, not lower, so that every spelling IGNORECASE matches finds its term.
     spellings: dict[str, str] = {}
     for term in terms:
-        spellings.setdefault(term.lower(), term)
+        spellings.setdefault(term.casefold(), term)
     pattern = whole_words_pattern(terms)
 
     def listed_spelling(match: re.Match[str]) -> str:
         heard = match[0]
-        return spellings.get(heard.lower(), heard)
+        return spellings.get(heard.casefold(), heard)
 
     def correct(text: str) -> str:
         return pattern.sub(listed_spelling, text)

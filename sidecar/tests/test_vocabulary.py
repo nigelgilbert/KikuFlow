@@ -12,6 +12,17 @@ def test_terms_are_one_per_line_without_blank_lines_or_surrounding_spaces(tmp_pa
     assert read_terms(tmp_path / "vocabs.txt") == ["Claude", "Mac", "macOS Sequoia"]
 
 
+def test_a_byte_order_mark_is_not_part_of_the_first_term(tmp_path: Path):
+    (tmp_path / "vocabs.txt").write_text("Claude\nMac\n", encoding="utf-8-sig")
+    assert read_terms(tmp_path / "vocabs.txt") == ["Claude", "Mac"]
+
+
+def test_a_file_that_is_not_utf8_is_an_error_naming_it(tmp_path: Path):
+    (tmp_path / "vocabs.txt").write_bytes("Café\n".encode("latin-1"))
+    with pytest.raises(ValueError, match=f"{tmp_path / 'vocabs.txt'} is not UTF-8 text"):
+        read_terms(tmp_path / "vocabs.txt")
+
+
 def test_missing_file_is_no_vocabulary(tmp_path: Path):
     assert read_terms(tmp_path / "vocabs.txt") == []
 
@@ -62,6 +73,11 @@ def test_terms_are_literal_text_not_patterns():
     assert correct("i write c++ daily") == "i write C++ daily"
     assert correct("axb and a.b") == "axb and a.b"
     assert correct("call (X) now") == "call (x) now"
+
+
+def test_a_case_variant_that_lower_misses_is_still_corrected():
+    # IGNORECASE matches the long s "ſ" to "s", and only casefold maps it back.
+    assert load_corrector(["Mars"])("on marſ") == "on Mars"
 
 
 def test_the_first_of_two_spellings_wins():
