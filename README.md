@@ -19,7 +19,7 @@ No telemetry and nothing leaves your Mac.
 Every dictation takes the same short trip, and the stops in brackets are yours:
 
 ```
-mic → transcribe → [on_transcribed] → cleanup → [on_cleaned] → paste → [on_sent] → log → [on_done]
+mic → transcribe → vocabulary → [on_transcribed] → cleanup → [on_cleaned] → paste → [on_sent] → log → [on_done]
 ```
 
 A hook is a method of a plugin, a Python class in a file in the hooks folder. It gets the text and returns the text. This one makes every dictation read like a text message, with no capital at the start and no full stop at the end:
@@ -75,7 +75,7 @@ To update, `git pull`, quit Kiku Flow and run the last two lines again. macOS ta
 ## Make it yours
 
 - [Lifecycle hooks](docs/hooks.md): the pipeline, the hooks and a page of recipes.
-- [Customization](docs/customization.md): the hotkey, the models, your own cleanup prompt, the log, your own HUD, and how the paste behaves.
+- [Customization](docs/customization.md): the hotkey, the models, your vocabulary, your own cleanup prompt, the log, your own HUD, and how the paste behaves.
 - [examples/](examples/): hooks to copy into the hooks folder and talk to.
 - [Releasing](docs/releasing.md): how a release is built and signed.
 

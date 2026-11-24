@@ -26,7 +26,11 @@ def decode_audio(body: bytes) -> np.ndarray:
     return pcm.astype(np.float32) / 32768
 
 
-def load_transcriber(engine: str, model: str) -> Transcriber:
+def load_transcriber(engine: str, model: str, terms: list[str]) -> Transcriber:
+    """Return the transcriber for `engine` and `model`.
+
+    Whisper gets `terms` as a hint to the model, and Parakeet has no way to take one.
+    """
     match engine:
         case "parakeet":
             parakeet = from_pretrained(model)
@@ -37,8 +41,13 @@ def load_transcriber(engine: str, model: str) -> Transcriber:
 
             return transcribe
         case "whisper":
-            return lambda audio: str(
-                mlx_whisper.transcribe(audio, path_or_hf_repo=model)["text"]
-            ).strip()
+            # None, Whisper's default, when there are no terms.
+            hint = ", ".join(terms) or None
+
+            def transcribe_with_whisper(audio: np.ndarray) -> str:
+                result = mlx_whisper.transcribe(audio, path_or_hf_repo=model, initial_prompt=hint)
+                return str(result["text"]).strip()
+
+            return transcribe_with_whisper
         case _:
             raise ValueError(f"unknown stt.engine {engine!r}; expected 'parakeet' or 'whisper'")

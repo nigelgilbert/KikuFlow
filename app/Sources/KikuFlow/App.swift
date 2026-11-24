@@ -63,6 +63,7 @@ enum Status: Equatable {
             NSMenuItem(title: "Open Log", action: #selector(openLog), keyEquivalent: "l"),
             NSMenuItem(title: "Open Errors", action: #selector(openErrors), keyEquivalent: "e"),
             NSMenuItem(title: "Open Config", action: #selector(openConfig), keyEquivalent: ","),
+            NSMenuItem(title: "Open Vocabulary", action: #selector(openVocabulary), keyEquivalent: "v"),
             .separator(),
             NSMenuItem(title: "Reload Kiku Flow", action: #selector(reload), keyEquivalent: "r"),
             NSMenuItem(title: "Quit Kiku Flow", action: #selector(NSApplication.terminate), keyEquivalent: "q"),
@@ -174,6 +175,8 @@ enum Status: Equatable {
     }
 
     @objc private func openConfig() { Config.open() }
+
+    @objc private func openVocabulary() { Config.openVocabulary() }
 
     @objc private func openLog() { Config.openLog() }
 

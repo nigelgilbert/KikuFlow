@@ -32,6 +32,7 @@ from .lifecycle import (
     write_log,
 )
 from .stt import SAMPLE_RATE, Transcriber, decode_audio, load_transcriber
+from .vocabulary import VOCABULARY_FILE, Corrector, load_corrector, read_terms
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ executor = ThreadPoolExecutor(max_workers=1)
 class Models:
     config: Config
     transcribe: Transcriber
+    correct: Corrector
     clean: Cleaner
     plugins: Plugins
 
@@ -61,7 +63,9 @@ def load_models() -> None:
     try:
         plugins = load_plugins(HOOK_DIR)  # first, so a broken hook file fails in milliseconds
         config = load_config()
-        transcribe = load_transcriber(config.stt_engine, config.stt_model)
+        terms = read_terms(VOCABULARY_FILE)
+        transcribe = load_transcriber(config.stt_engine, config.stt_model, terms)
+        correct = load_corrector(terms)
         clean = load_cleaner(config)
         # One throwaway pass each, so the first dictation doesn't pay for kernel compilation.
         transcribe(np.zeros(SAMPLE_RATE, np.float32))
@@ -73,7 +77,7 @@ def load_models() -> None:
         state.models, state.error = None, error
         write_error(error)
         return
-    state.models, state.error = Models(config, transcribe, clean, plugins), None
+    state.models, state.error = Models(config, transcribe, correct, clean, plugins), None
 
 
 def start_loading() -> None:
@@ -119,8 +123,11 @@ def process(m: Models, audio: np.ndarray) -> dict:
     # A tap shorter than 0.1 s holds no speech.
     with labelled("speech recognition"):
         raw = m.transcribe(audio) if len(audio) >= SAMPLE_RATE // 10 else ""
+    with labelled("vocabulary"):
+        text = m.correct(raw)
     transcribed = time.perf_counter()
-    text = fire(m.plugins, "on_transcribed", raw)
+    # `raw` stays what speech recognition heard; the hooks get the vocabulary's spelling.
+    text = fire(m.plugins, "on_transcribed", text)
     if text:
         with labelled("cleanup model"):
             # An empty cleanup keeps the transcript.

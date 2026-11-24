@@ -1,6 +1,11 @@
 import Testing
 @testable import KikuFlow
 
+@Test func vocabularyIsVocabsTxtInTheKikuFlowFolder() {
+    let path = Config.vocabulary.path(percentEncoded: false)
+    #expect(path.hasSuffix("/Library/Application Support/KikuFlow/vocabs.txt"))
+}
+
 @Test func portDefaultsWhenMissing() {
     #expect(Config.port(in: "") == 48123)
     #expect(Config.port(in: "[stt]\nport = 1\n") == 48123)

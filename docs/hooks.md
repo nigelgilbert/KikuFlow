@@ -4,7 +4,7 @@ A hook is a method of a plugin, a Python class in a file of yours, and Kiku Flow
 
 ```mermaid
 flowchart LR
-    mic((mic)) --> stt(transcribe) --> t(on_transcribed):::hook --> clean(cleanup)
+    mic((mic)) --> stt(transcribe) --> v(vocabulary) --> t(on_transcribed):::hook --> clean(cleanup)
     clean --> c(on_cleaned):::hook --> paste(paste) --> s(on_sent):::hook --> log(log) --> d(on_done):::hook
     classDef hook stroke-dasharray: 4 3
 ```
@@ -35,7 +35,7 @@ Kiku Flow loads every `*.py` file in that folder. A build from source links the 
 
 | Hook | Fires | Gets | What it returns becomes |
 | --- | --- | --- | --- |
-| `on_transcribed(t)` | after speech recognition | what you said | the text the cleanup model sees |
+| `on_transcribed(t)` | after speech recognition and [your vocabulary](customization.md#your-vocabulary) | what you said | the text the cleanup model sees |
 | `on_cleaned(t)` | after the cleanup model | the cleaned text | the text that is pasted |
 | `on_sent(t)` | once the text has gone off to be pasted | the pasted text | the log entry |
 | `on_done(t)` | after the log entry is written | the log entry | nothing; it returns the text, which is not used |
@@ -86,7 +86,7 @@ Each of these is a whole file. The ones that bring their own model are in [examp
 
 ### Fix the words it mishears
 
-`vocabulary.py` fixes words that speech recognition gets wrong, whatever their case, before the cleanup model sees them.
+`vocabulary.py` fixes words that speech recognition gets wrong, whatever their case, before the cleanup model sees them. A word that only comes out in the wrong case needs no hook: list it in [`vocabs.txt`](customization.md#your-vocabulary).
 
 ```python
 import re
@@ -134,7 +134,7 @@ class ChatVoice(Plugin):
 
 ### Paste the raw transcript
 
-`verbatim.py` pastes what you said, word for word, when you start with "verbatim". The cleanup still runs; its result is dropped. The file sorts before `vocabulary.py`, so the transcript it keeps is the one from before the vocabulary fixes.
+`verbatim.py` pastes what you said, word for word apart from the spellings in [`vocabs.txt`](customization.md#your-vocabulary), when you start with "verbatim". The cleanup still runs; its result is dropped. The file sorts before `vocabulary.py`, so the transcript it keeps is the one from before that file's fixes.
 
 ```python
 from typing import override
@@ -287,7 +287,7 @@ class Polish(Plugin):
 
 ## on_error
 
-`on_error(e)` gets the exception from any failure in a dictation: a hook, speech recognition, the cleanup model or the log write. `e.__notes__[-1]` says which, as `on_cleaned in voice.py:3`, `speech recognition`, `cleanup model` or `log write`.
+`on_error(e)` gets the exception from any failure in a dictation: a hook, speech recognition, the vocabulary, the cleanup model or the log write. `e.__notes__[-1]` says which, as `on_cleaned in voice.py:3`, `speech recognition`, `vocabulary`, `cleanup model` or `log write`.
 
 | Return | Effect |
 | --- | --- |

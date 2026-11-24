@@ -3,6 +3,7 @@ import AppKit
 enum Config {
     static let dir = URL.applicationSupportDirectory.appending(path: "KikuFlow")
     static let file = dir.appending(path: "config.toml")
+    static let vocabulary = dir.appending(path: "vocabs.txt")
     static let log = dir.appending(path: "log.txt")
     static let errors = dir.appending(path: "errors.txt")
     static let sidecarLog = dir.appending(path: "sidecar.log")
@@ -79,6 +80,7 @@ enum Config {
     }
 
     @MainActor static func open() { open(file, creatingWith: defaults) }
+    @MainActor static func openVocabulary() { open(vocabulary, creatingWith: "") }
     @MainActor static func openLog() { open(log, creatingWith: "") }
     @MainActor static func openErrors() { open(errors, creatingWith: "") }
 
