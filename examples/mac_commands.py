@@ -4,9 +4,7 @@ import re
 import subprocess
 from typing import override
 
-from mlx_lm import generate, load
-
-from kiku import Plugin
+from kiku import Plugin, load_model
 
 MODEL = "mlx-community/Qwen3-4B-Instruct-2507-4bit"
 PREFIX = re.compile(r"\W*(?:Macintosh|Mac)\b", re.IGNORECASE)
@@ -44,27 +42,14 @@ EXAMPLES = (
 
 class MacCommands(Plugin):
     def __init__(self) -> None:
-        self.model, self.tokenizer = load(MODEL)[:2]
-
-    def prompt(self, system: str, text: str, examples: tuple[tuple[str, str], ...] = ()) -> str:
-        """Return the model's reply to the text, after showing it the examples."""
-        messages = [{"role": "system", "content": system}]
-        for said, reply in examples:
-            messages.append({"role": "user", "content": said})
-            messages.append({"role": "assistant", "content": reply})
-        messages.append({"role": "user", "content": text})
-        chat = self.tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True, tokenize=False
-        )
-        max_tokens = 4 * len(self.tokenizer.encode(text)) + 64
-        return generate(self.model, self.tokenizer, chat, max_tokens=max_tokens).strip()
+        self.model = load_model(MODEL)
 
     @override
     def on_transcribed(self, t: str) -> str:
         """Run the command that was asked for, and stop the dictation."""
         if not PREFIX.match(t):
             return t
-        name = self.prompt(PARSE, t, EXAMPLES)
+        name = self.model.prompt(PARSE, t, EXAMPLES)
         if name == "none":
             return t
         if name.startswith("open "):

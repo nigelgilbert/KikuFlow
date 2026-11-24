@@ -12,7 +12,7 @@ Copy a file into the hooks folder, `~/Library/Application Support/KikuFlow/hooks
 
 Without its word, a dictation goes through as usual, and the file's model is not asked. The pirate has no word. The files stack in filename order, so with the pirate installed, a translation is of what the pirate said.
 
-Every file brings its own model. `terminal.py` uses `mlx-community/Qwen2.5-Coder-7B-Instruct-4bit` and the rest use `mlx-community/Qwen3-4B-Instruct-2507-4bit`. A model downloads the first time and loads when the app starts. Each file loads its own copy, a few GB of memory apiece.
+Every file names its own model and loads it with `load_model`. `terminal.py` uses `mlx-community/Qwen2.5-Coder-7B-Instruct-4bit` and the rest use `mlx-community/Qwen3-4B-Instruct-2507-4bit`. A model downloads the first time, loads when the app starts and stays in memory, a few GB each. Files that name the same model share one copy, so the four that use Qwen3 cost the memory of one. Change `MODEL` in a file to bring a model of your own.
 
 Two things to know before you copy a file:
 
