@@ -3,9 +3,7 @@
 import re
 from typing import override
 
-from mlx_lm import generate, load
-
-from kiku import Plugin
+from kiku import Plugin, load_model
 
 MODEL = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
 WORDS = "terminal|command[- ]?line|shell|bash"
@@ -18,7 +16,7 @@ PROMPT = (
 
 class Terminal(Plugin):
     def __init__(self) -> None:
-        self.model, self.tokenizer = load(MODEL)[:2]
+        self.model = load_model(MODEL)
 
     @override
     def on_cleaned(self, t: str) -> str:
@@ -26,9 +24,5 @@ class Terminal(Plugin):
         said = PREFIX.match(t)
         if not said:
             return t
-        messages = [{"role": "system", "content": PROMPT}, {"role": "user", "content": said[1]}]
-        chat = self.tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True, tokenize=False
-        )
-        reply = generate(self.model, self.tokenizer, chat, max_tokens=128)
+        reply = self.model.prompt(PROMPT, said[1])
         return reply.strip("` \n") or t

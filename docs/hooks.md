@@ -63,6 +63,19 @@ Hooks run in the speech engine's own Python, so they can import the standard lib
 
 A file that fails to import, or a plugin whose `__init__` fails, stops the app from loading. You get the warning triangle, and "Open Errors" shows something like `hook file voice.py: ModuleNotFoundError: …`. Fix the file and reload.
 
+## Bring your own model
+
+A plugin can ask a chat model of its own. `load_model` from `kiku` loads one by name, and `prompt` asks it:
+
+- `self.model = load_model("mlx-community/Qwen3-4B-Instruct-2507-4bit")` in `__init__` loads the model when the app starts. The name is a Hugging Face repo in MLX format, downloaded the first time, or a folder on your Mac.
+- `self.model.prompt(system, text)` in a hook returns the model's reply to `text` under your system prompt. A third argument takes examples, each a pair of what a user said and the reply to give, as `(("Mac, dark mode.", "dark mode"),)`.
+
+A model stays in memory until you quit or reload. Plugins that name the same model share one copy, so the second costs no more memory. A different name is a different model.
+
+`engine` says what runs the model. `"mlx"` is the default and the only one so far, so `load_model(name)` and `load_model(name, engine="mlx")` are the same call.
+
+`load_model` is there to share a model, and nothing makes you use it. A plugin can call mlx-lm itself, or a server like Ollama, from `__init__`. [talk_like_a_pirate.py](../examples/talk_like_a_pirate.py) is the shortest plugin with a model.
+
 ## Performance Considerations
 
 `on_transcribed` and `on_cleaned` run before the paste, so they slow down the transcription result. `on_sent` and `on_done` run after it. They can't slow the paste down, but the next dictation waits until they finish.
