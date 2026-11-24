@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from kiku_sidecar import cleanup, lifecycle, server
+from kiku_sidecar import cleanup, lifecycle, server, vocabulary
 from kiku_sidecar.config import Config, load_config
 
 SPEECH = np.zeros(16_000, "<f4").tobytes()  # one second of raw float32 PCM
@@ -65,7 +65,8 @@ class Fakes:
         self.cleaner_inputs: list[str] = []
         self.transcriber_loads = 0
         self.cleaner_loads = 0
-        self.failure: dict[str, Exception] = {}  # "stt" or "cleanup": what that model raises
+        # "stt", "vocabulary" or "cleanup": what that stage raises
+        self.failure: dict[str, Exception] = {}
         self.loaded = threading.Event()
         self.loaded.set()
 
@@ -81,6 +82,16 @@ class Fakes:
             return RAW
 
         return transcribe
+
+    def load_corrector(self, terms: list[str]):
+        correct = vocabulary.load_corrector(terms)
+
+        def checked_correct(text: str) -> str:
+            if "vocabulary" in self.failure:
+                raise self.failure["vocabulary"]
+            return correct(text)
+
+        return checked_correct
 
     def load_cleaner(self, config: Config):
         self.cleaner_loads += 1
@@ -116,13 +127,15 @@ def errors(tmp_path: Path) -> list[str]:
 
 @pytest.fixture
 def fakes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, hooks: Path) -> Fakes:
-    """Fake models, and temporary stand-ins for the hook directory, the log and errors.txt."""
+    """Fake models, and stand-ins for the hook directory, vocabs.txt, the log and errors.txt."""
     fakes = Fakes()
     monkeypatch.setattr(server, "HOOK_DIR", hooks)
+    monkeypatch.setattr(server, "VOCABULARY_FILE", tmp_path / "vocabs.txt")
     monkeypatch.setattr(lifecycle, "LOG_FILE", tmp_path / "log.txt")
     monkeypatch.setattr(lifecycle, "ERRORS", tmp_path / "errors.txt")
     monkeypatch.setattr(server, "load_config", lambda: fakes.config)
     monkeypatch.setattr(server, "load_transcriber", fakes.load_transcriber)
+    monkeypatch.setattr(server, "load_corrector", fakes.load_corrector)
     monkeypatch.setattr(server, "load_cleaner", fakes.load_cleaner)
     return fakes
 
@@ -230,6 +243,17 @@ def test_hooks_shape_the_text_around_cleanup(
         ["on_done", "Please call Anna tomorrow.!"],
     ]
     assert (tmp_path / "log.txt").read_text() == "Please call Anna tomorrow.!"
+
+
+def test_hooks_and_the_cleaner_get_the_vocabulary_spelling_but_raw_does_not(
+    fakes: Fakes, hooks: Path, tmp_path: Path, client: TestClient
+):
+    (tmp_path / "vocabs.txt").write_text("FRIDAY\nUm so\n")
+    server.start_loading()
+    body = client.post("/transcribe", content=SPEECH).json()
+    assert body["raw"] == RAW
+    assert fakes.cleaner_inputs[-1] == "Um so we should uh meet on FRIDAY"
+    assert calls(hooks)[0][:2] == ["on_transcribed", "Um so we should uh meet on FRIDAY"]
 
 
 def test_empty_transcription_fires_no_hooks(hooks: Path, client: TestClient):
@@ -379,6 +403,7 @@ def test_hook_returning_a_wrong_type_before_the_reply_gives_500(
             RuntimeError("Metal\nout of memory"),
             "speech recognition: RuntimeError: Metal out of memory",
         ),
+        ("vocabulary", ValueError("bad term"), "vocabulary: ValueError: bad term"),
         ("cleanup", TimeoutError(), "cleanup model: TimeoutError"),
     ],
 )

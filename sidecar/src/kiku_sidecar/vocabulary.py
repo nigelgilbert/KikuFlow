@@ -11,7 +11,7 @@ VOCABULARY_FILE = APP_DIR / "vocabs.txt"
 type Corrector = Callable[[str], str]
 
 
-def read_terms(path: Path = VOCABULARY_FILE) -> list[str]:
+def read_terms(path: Path) -> list[str]:
     """Return the terms in the file at `path`, one per line, or none when it is missing.
 
     Surrounding whitespace is stripped, and blank lines are left out.
