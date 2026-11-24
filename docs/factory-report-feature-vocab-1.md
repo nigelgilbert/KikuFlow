@@ -65,3 +65,42 @@ Range `374c730..99254e1`. 19 candidates, 13 kept (2 Fix, 11 Nit), 6 Wontfix, 2 S
 
 - **Candidate 7 (Nit 8).** Filter: nit, since few characters are affected and nothing is corrupted. Sol: fix, since nothing limits matching to English, and it wants each pattern alternative bound to its spelling. Decision: nit.
 - **Candidate 13 (Wontfix).** Filter: wontfix, since the script is throwaway and its docstring says WAV only. Sol: nit, since non-WAV bytes are read as raw audio and print bogus scores. Decision: wontfix.
+
+## Fix pass
+
+Pass base `981ba63`. The implementer folded in 10 of the 13 items and left 3.
+
+| Item | Result | Commit |
+| --- | --- | --- |
+| Fix 1: Whisper invents text in silence | Caveat added to `docs/customization.md` and `sidecar/README.md`; no code guard | `2ba71bb` |
+| Fix 2: punctuation sets a word's confidence | The minimum now covers only tokens with a letter or digit; docstring updated | `9bba7fd` |
+| Nit 3: ⌘V matches the paste keystroke | Left for the user, who chose ⌘V | none |
+| Nit 4: "the longer one wins" | Both docs reworded | `2ba71bb` |
+| Nit 5: byte order mark | Read with `utf-8-sig`, with a test | `6ac60b7` |
+| Nit 6: non-UTF-8 file | Raises a `ValueError` naming the path, with a test | `6ac60b7` |
+| Nit 7: "word for word" in the `verbatim.py` recipe | Reworded | `2ba71bb` |
+| Nit 8: `re.IGNORECASE` against `.lower()` | Keyed on `casefold()`, with a test | `6ac60b7` |
+| Nit 9: long list loses the hint | One sentence in both docs | `2ba71bb` |
+| Nit 10: `stt_ms` includes the vocabulary pass | Left: one regex substitution, and the review marked it safe to leave | none |
+| Nit 11: unannotated fake | Annotated | `4a56b95` |
+| Nit 12: `load_corrector` loads nothing | Left: the name mirrors `load_cleaner`, as the plan asks | none |
+| Nit 13: the script's default model | Docstring says it is the built-in model and that `config.toml` is not read | `9bba7fd` |
+
+There was no pushback to settle.
+
+## Open items
+
+- **Step 3 of the plan is not built.** It waits on step 1's measurements: record the utterances, run `sidecar/scripts/word_confidence.py` on them, and compare the confidence of misheard words with real ones.
+- **Whisper and silence.** With a vocabulary, `whisper-tiny` turns silence into invented text. The default `whisper-large-v3-turbo` is untested, and no code guard is in place.
+- **⌘V (Nit 3).** If the menu is open when a dictation's reply arrives, the app's own ⌘V may open `vocabs.txt`. Not run on macOS.
+- **Nit 10 and Nit 12** were left as they are.
+- **One finding from the run:** on speech synthesized with `say`, Parakeet heard "Terminal, start Claude" as "clot", with confidence 0.870. A synthetic voice is not the user's voice.
+
+## Tests
+
+At `2ba71bb`:
+
+- `uv run pytest -q` in `sidecar/`: 142 passed (117 at the base).
+- `uv run pyright`: 0 errors.
+- `uv run ruff check . ../examples` and `uv run ruff format --check . ../examples`: clean.
+- `app/test.sh`: 19 passed (18 at the base).
