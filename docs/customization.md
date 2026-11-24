@@ -1,12 +1,13 @@
 # Customization
 
-There are four things to change, from least to most effort: the config file, the cleanup prompt, hooks and the HUD.
+There are five things to change, from least to most effort: the config file, your vocabulary, the cleanup prompt, hooks and the HUD.
 
 Everything lives in the Kiku Flow folder, `~/Library/Application Support/KikuFlow/`:
 
 | File | What it is |
 | --- | --- |
 | `config.toml` | The settings below |
+| `vocabs.txt` | [Your vocabulary](#your-vocabulary), one term per line |
 | `hooks/` | Your [hook files](hooks.md) |
 | `log.txt` | Your last 100 dictations |
 | `errors.txt` | The last 50 failures |
@@ -58,6 +59,24 @@ With `key = "fn"`, set System Settings › Keyboard › "Press 🌐 key to" to "
 The second is gated on Hugging Face. Before you set `model` to it, accept the terms on [the model's page](https://huggingface.co/ReFyneLabs/simplewords-dictation-cleanup-v3) and log in with `~/Library/Application\ Support/KikuFlow/venv/bin/hf auth login`, or `hf auth login` if you have the CLI. Without that, the reload stops at a warning triangle, and "Open Errors" says `Access to model … is restricted`.
 
 `HF_TOKEN` works in place of a login only when the app is started from a shell that has it set, which a launch from Finder isn't.
+
+## Your vocabulary
+
+"Open Vocabulary" in the menu (⌘V while the menu is open) opens `vocabs.txt`, and creates it if it isn't there. Put one word or phrase on each line, spelled the way you want it:
+
+```
+Claude
+Mac
+Kiku Flow
+```
+
+Blank lines and the spaces around a term are ignored. Choose "Reload Kiku Flow" after editing the file.
+
+When what you said matches a term in all but its case, it is spelled as listed, before any hook sees the text: "claude" becomes "Claude" and "mac" becomes "Mac". Only whole words match, so "machine" and "map" stay as they are. When two terms overlap, the longer one wins. This works with either engine.
+
+With `[stt] engine = "whisper"`, the list also goes to the model as a hint, so it is more likely to hear those words in the first place. Parakeet has no way to take a hint.
+
+The list nudges the output; it doesn't guarantee it. The cleanup model, which runs after it, can still change a word. It does not yet fix a word Parakeet hears as a different word, such as "Mac" heard as "map". For that, write a [hook](hooks.md#fix-the-words-it-mishears).
 
 ## Your own cleanup prompt
 
