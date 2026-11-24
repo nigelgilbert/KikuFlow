@@ -15,10 +15,11 @@ PROMPT = (
     "Output only the command, on one line, with no code fence and no explanation."
 )
 
-model, tokenizer = load(MODEL)[:2]
-
 
 class Terminal(Plugin):
+    def __init__(self) -> None:
+        self.model, self.tokenizer = load(MODEL)[:2]
+
     @override
     def on_cleaned(self, t: str) -> str:
         """Return the command that does what was asked, in place of the request."""
@@ -26,6 +27,8 @@ class Terminal(Plugin):
         if not said:
             return t
         messages = [{"role": "system", "content": PROMPT}, {"role": "user", "content": said[1]}]
-        chat = tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
-        reply = generate(model, tokenizer, chat, max_tokens=128)
+        chat = self.tokenizer.apply_chat_template(
+            messages, add_generation_prompt=True, tokenize=False
+        )
+        reply = generate(self.model, self.tokenizer, chat, max_tokens=128)
         return reply.strip("` \n") or t

@@ -31,29 +31,31 @@ EXAMPLES = (
     ("um, search the weather, on Firefox", '{"browser": "firefox", "query": "weather"}'),
 )
 
-model, tokenizer = load(MODEL)[:2]
-
-
-def prompt(system: str, text: str, examples: tuple[tuple[str, str], ...] = ()) -> str:
-    """Return the model's reply to the text, after showing it the examples."""
-    messages = [{"role": "system", "content": system}]
-    for said, reply in examples:
-        messages.append({"role": "user", "content": said})
-        messages.append({"role": "assistant", "content": reply})
-    messages.append({"role": "user", "content": text})
-    chat = tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
-    max_tokens = 4 * len(tokenizer.encode(text)) + 64
-    return generate(model, tokenizer, chat, max_tokens=max_tokens).strip()
-
 
 class WebSearch(Plugin):
+    def __init__(self) -> None:
+        self.model, self.tokenizer = load(MODEL)[:2]
+
+    def prompt(self, system: str, text: str, examples: tuple[tuple[str, str], ...] = ()) -> str:
+        """Return the model's reply to the text, after showing it the examples."""
+        messages = [{"role": "system", "content": system}]
+        for said, reply in examples:
+            messages.append({"role": "user", "content": said})
+            messages.append({"role": "assistant", "content": reply})
+        messages.append({"role": "user", "content": text})
+        chat = self.tokenizer.apply_chat_template(
+            messages, add_generation_prompt=True, tokenize=False
+        )
+        max_tokens = 4 * len(self.tokenizer.encode(text)) + 64
+        return generate(self.model, self.tokenizer, chat, max_tokens=max_tokens).strip()
+
     @override
     def on_transcribed(self, t: str) -> str:
         """Log the text, open the search in the browser that was named, and stop the dictation."""
         if not WORDS.search(t):
             return t
         write_log(t)
-        reply = prompt(PARSE, t, EXAMPLES)
+        reply = self.prompt(PARSE, t, EXAMPLES)
         try:
             parsed = json.loads(reply)
             url = URL + quote_plus(parsed["query"])
