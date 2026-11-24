@@ -49,9 +49,9 @@ def test_unknown_engine_fails_at_load():
 def test_whisper_gets_the_terms_as_its_initial_prompt(
     monkeypatch: pytest.MonkeyPatch, terms: list[str], hint: str | None
 ):
-    calls = []
+    calls: list[dict[str, object]] = []
 
-    def transcribe(audio, **options):
+    def transcribe(audio: np.ndarray, **options: object) -> dict[str, str]:
         calls.append(options)
         return {"text": " Hello there. "}
 
