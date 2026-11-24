@@ -1,5 +1,6 @@
 import asyncio
 import re
+import textwrap
 import threading
 from collections.abc import Iterator
 from pathlib import Path
@@ -20,27 +21,41 @@ RECORDER = """
 import threading
 from pathlib import Path
 
+from kiku import Plugin
+
+
 def record(point, t):
     logged = Path(__file__).parents[1].joinpath("log.txt").exists()
     with Path(__file__).with_name("calls.txt").open("a") as f:
         print(point, t, threading.current_thread().name, logged, sep="|", file=f)
 
-def on_transcribed(t):
-    record("on_transcribed", t)
-    return t
 
-def on_cleaned(t):
-    record("on_cleaned", t)
-    return t
+class Recorder(Plugin):
+    def on_transcribed(self, t):
+        record("on_transcribed", t)
+        return t
 
-def on_sent(t):
-    record("on_sent", t)
-    return t
+    def on_cleaned(self, t):
+        record("on_cleaned", t)
+        return t
 
-def on_done(t):
-    record("on_done", t)
-    return t
+    def on_sent(self, t):
+        record("on_sent", t)
+        return t
+
+    def on_done(self, t):
+        record("on_done", t)
+        return t
 """
+
+# The first four lines of every hook file written by `plugin_file`, so its methods start on line 5.
+HEADER = "from kiku import Plugin\n\n\nclass P(Plugin):\n"
+
+
+def plugin_file(methods: str) -> str:
+    """Return the source of a hook file whose one plugin, `P`, has `methods`."""
+    body = textwrap.indent(textwrap.dedent(methods), "    ")
+    return HEADER + body
 
 
 class Fakes:
@@ -195,10 +210,11 @@ def test_missing_prompt_file_is_reported(
 def test_hooks_shape_the_text_around_cleanup(
     fakes: Fakes, hooks: Path, tmp_path: Path, client: TestClient
 ):
-    (hooks / "a.py").write_text(
-        "def on_transcribed(t): return 'please call Anna tomorrow'\n"
-        "def on_cleaned(t): return t + '!'\n"
+    methods = (
+        "def on_transcribed(self, t): return 'please call Anna tomorrow'\n"
+        "def on_cleaned(self, t): return t + '!'\n"
     )
+    (hooks / "a.py").write_text(plugin_file(methods))
     fakes.cleaned = "Please call Anna tomorrow."
     server.start_loading()
     body = client.post("/transcribe", content=SPEECH).json()
@@ -224,7 +240,7 @@ def test_empty_transcription_fires_no_hooks(hooks: Path, client: TestClient):
 def test_hook_returning_empty_text_stops_the_pipeline(
     fakes: Fakes, hooks: Path, client: TestClient
 ):
-    (hooks / "a.py").write_text("def on_transcribed(t): return ''\n")
+    (hooks / "a.py").write_text(plugin_file("def on_transcribed(self, t): return ''\n"))
     server.start_loading()
     assert client.post("/transcribe", content=SPEECH).json()["clean"] == ""
     assert set(fakes.cleaner_inputs) == {"Hello there."}  # only the warm-up passes
@@ -313,7 +329,7 @@ def test_failed_log_write_is_recorded_and_stops_on_done(
 def test_on_sent_decides_what_is_logged_but_not_the_reply(
     hooks: Path, tmp_path: Path, client: TestClient
 ):
-    (hooks / "a.py").write_text("def on_sent(t): return t.upper()\n")
+    (hooks / "a.py").write_text(plugin_file("def on_sent(self, t): return t.upper()\n"))
     server.start_loading()
     assert client.post("/transcribe", content=SPEECH).json()["clean"] == "We should meet on Friday."
     assert (tmp_path / "log.txt").read_text() == "WE SHOULD MEET ON FRIDAY."
@@ -324,7 +340,7 @@ def test_on_sent_decides_what_is_logged_but_not_the_reply(
 def test_on_sent_returning_blank_text_skips_the_log_and_on_done(
     blank: str, hooks: Path, tmp_path: Path, client: TestClient
 ):
-    (hooks / "a.py").write_text(f"def on_sent(t): return {blank!r}\n")
+    (hooks / "a.py").write_text(plugin_file(f"def on_sent(self, t): return {blank!r}\n"))
     server.start_loading()
     assert client.post("/transcribe", content=SPEECH).json()["clean"] == "We should meet on Friday."
     assert not (tmp_path / "log.txt").exists()
@@ -334,19 +350,19 @@ def test_on_sent_returning_blank_text_skips_the_log_and_on_done(
 def test_hook_failing_before_the_reply_gives_500_with_its_message(
     fakes: Fakes, hooks: Path, tmp_path: Path, client: TestClient
 ):
-    (hooks / "voice.py").write_text("def on_cleaned(t):\n    return {}['x']\n")
+    (hooks / "voice.py").write_text(plugin_file("def on_cleaned(self, t):\n    return {}['x']\n"))
     server.start_loading()
     response = client.post("/transcribe", content=SPEECH)
     assert response.status_code == 500
-    assert response.json() == {"detail": "on_cleaned in voice.py:2: KeyError: 'x'"}
+    assert response.json() == {"detail": "on_cleaned in voice.py:6: KeyError: 'x'"}
     assert [c[0] for c in calls(hooks)] == ["on_transcribed"]
-    assert errors(tmp_path) == ["on_cleaned in voice.py:2: KeyError: 'x'"]
+    assert errors(tmp_path) == ["on_cleaned in voice.py:6: KeyError: 'x'"]
 
 
 def test_hook_returning_a_wrong_type_before_the_reply_gives_500(
     hooks: Path, tmp_path: Path, client: TestClient
 ):
-    (hooks / "a.py").write_text("def on_cleaned(t): return {}\n")
+    (hooks / "a.py").write_text(plugin_file("def on_cleaned(self, t): return {}\n"))
     server.start_loading()
     response = client.post("/transcribe", content=SPEECH)
     detail = "on_cleaned in a.py: TypeError: on_cleaned returned dict, not str"
@@ -390,10 +406,11 @@ def test_model_failing_gives_500_with_its_label(
 def test_hook_failing_after_the_reply_is_recorded_and_stops_the_rest(
     hooks: Path, tmp_path: Path, client: TestClient, point: str, run: list[str]
 ):
-    (hooks / "a.py").write_text(f"def {point}(t):\n    raise ConnectionError('offline')\n")
+    methods = f"def {point}(self, t):\n    raise ConnectionError('offline')\n"
+    (hooks / "a.py").write_text(plugin_file(methods))
     server.start_loading()
     assert client.post("/transcribe", content=SPEECH).status_code == 200
-    assert errors(tmp_path) == [f"{point} in a.py:2: ConnectionError: offline"]
+    assert errors(tmp_path) == [f"{point} in a.py:6: ConnectionError: offline"]
     assert (tmp_path / "log.txt").exists() == (point == "on_done")
     # The recorder sorts after a.py, so it sees only the phases before the failing one.
     assert [c[0] for c in calls(hooks)] == ["on_transcribed", "on_cleaned", *run[:-1]]
@@ -403,7 +420,7 @@ def test_hook_failing_after_the_reply_is_recorded_and_stops_the_rest(
 def test_hook_returning_a_wrong_type_after_the_reply_is_recorded(
     hooks: Path, tmp_path: Path, client: TestClient, point: str
 ):
-    (hooks / "a.py").write_text(f"def {point}(t): return {{}}\n")
+    (hooks / "a.py").write_text(plugin_file(f"def {point}(self, t): return {{}}\n"))
     server.start_loading()
     assert client.post("/transcribe", content=SPEECH).status_code == 200
     message = f"{point} in a.py: TypeError: {point} returned dict, not str"
@@ -416,7 +433,7 @@ def test_hook_returning_a_wrong_type_after_the_reply_is_recorded(
 def test_on_done_returning_a_string_changes_nothing(
     hooks: Path, tmp_path: Path, client: TestClient
 ):
-    (hooks / "a.py").write_text("def on_done(t): return 'other'\n")
+    (hooks / "a.py").write_text(plugin_file("def on_done(self, t): return 'other'\n"))
     server.start_loading()
     assert client.post("/transcribe", content=SPEECH).status_code == 200
     assert errors(tmp_path) == []
@@ -426,9 +443,11 @@ def test_on_done_returning_a_string_changes_nothing(
 def test_on_error_returning_empty_gives_500_with_empty_detail(
     hooks: Path, tmp_path: Path, client: TestClient
 ):
-    (hooks / "a.py").write_text(
-        "def on_transcribed(t):\n    raise ValueError('no')\n\ndef on_error(e):\n    return ''\n"
+    methods = (
+        "def on_transcribed(self, t):\n    raise ValueError('no')\n\n"
+        "def on_error(self, e):\n    return ''\n"
     )
+    (hooks / "a.py").write_text(plugin_file(methods))
     server.start_loading()
     response = client.post("/transcribe", content=SPEECH)
     assert (response.status_code, response.json()) == (500, {"detail": ""})
@@ -436,17 +455,18 @@ def test_on_error_returning_empty_gives_500_with_empty_detail(
 
 
 def test_on_error_message_is_the_detail(hooks: Path, tmp_path: Path, client: TestClient):
-    (hooks / "a.py").write_text(
-        "def on_transcribed(t):\n    raise ValueError('no')\n\n"
-        "def on_error(e):\n    return f'Oops,\\n{e}'\n"
+    methods = (
+        "def on_transcribed(self, t):\n    raise ValueError('no')\n\n"
+        "def on_error(self, e):\n    return f'Oops,\\n{e}'\n"
     )
+    (hooks / "a.py").write_text(plugin_file(methods))
     server.start_loading()
     assert client.post("/transcribe", content=SPEECH).json() == {"detail": "Oops, no"}
     assert errors(tmp_path) == ["Oops, no"]
 
 
 def test_503_while_models_are_not_loaded_is_left_alone(fakes: Fakes, hooks: Path, tmp_path: Path):
-    (hooks / "a.py").write_text("def on_error(e):\n    return 'from on_error'\n")
+    (hooks / "a.py").write_text(plugin_file("def on_error(self, e):\n    return 'from on_error'\n"))
     fakes.config = Config(stt_engine="vosk")
     with TestClient(server.app) as client:
         wait_for_load()
@@ -461,16 +481,21 @@ def test_503_while_models_are_not_loaded_is_left_alone(fakes: Fakes, hooks: Path
 def test_on_error_can_keep_a_failure_after_the_reply_out_of_errors_txt(
     hooks: Path, tmp_path: Path, client: TestClient
 ):
-    (hooks / "archive.py").write_text(
+    archive = (
         "import urllib.error\n\n"
-        "def on_done(t):\n    raise urllib.error.URLError(ConnectionRefusedError())\n"
+        "from kiku import Plugin\n\n\n"
+        "class Archive(Plugin):\n"
+        "    def on_done(self, t):\n"
+        "        raise urllib.error.URLError(ConnectionRefusedError())\n"
     )
-    (hooks / "offline.py").write_text(
-        "def on_error(e):\n"
+    offline = (
+        "def on_error(self, e):\n"
         "    if isinstance(getattr(e, 'reason', e), ConnectionError):\n"
         "        return ''\n"
         "    return e\n"
     )
+    (hooks / "archive.py").write_text(archive)
+    (hooks / "offline.py").write_text(plugin_file(offline))
     server.start_loading()
     assert client.post("/transcribe", content=SPEECH).status_code == 200
     assert (tmp_path / "log.txt").exists()
