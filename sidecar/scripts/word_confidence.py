@@ -1,6 +1,7 @@
 """Print each word Parakeet hears in a recording, with its confidence.
 
-Run it from `sidecar/` on one or more 16 kHz mono 16-bit WAV files:
+Run it from `sidecar/` on one or more 16 kHz mono 16-bit WAV files. The model is Kiku Flow's
+built-in Parakeet model unless `--model` names another; `config.toml` is not read.
 
     uv run python scripts/word_confidence.py mac1.wav mac2.wav
     uv run python scripts/word_confidence.py --model mlx-community/parakeet-tdt-0.6b-v2 mac1.wav
@@ -10,10 +11,12 @@ To make such a file from any recording: `afconvert -f WAVE -d LEI16@16000 -c 1 i
 Each file prints its name, then one word per line: the confidence, from 0 to 1, and the word.
 Parakeet scores sub-word tokens, and a token that starts with a space starts a new word.
 A word's confidence is the lowest of its tokens' confidences, since a word is only as sure as
-its least sure piece.
+its least sure piece. Punctuation, such as the comma in "Mac,", is printed with the word but left
+out of the lowest, unless the word is nothing but punctuation.
 """
 
 import argparse
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -32,6 +35,13 @@ class Word:
     confidence: float
 
 
+def lowest_confidence(tokens: list[AlignedToken]) -> float:
+    """Return the lowest confidence of the tokens that hold a letter or digit, or of all of them."""
+    spelled = [token for token in tokens if re.search(r"\w", token.text)]
+    scored = spelled or tokens
+    return min(token.confidence for token in scored)
+
+
 def group_into_words(tokens: list[AlignedToken]) -> list[Word]:
     """Return the words the tokens spell, each with its lowest token confidence."""
     groups: list[list[AlignedToken]] = []
@@ -43,7 +53,7 @@ def group_into_words(tokens: list[AlignedToken]) -> list[Word]:
     words = []
     for group in groups:
         text = "".join(token.text for token in group).strip()
-        confidence = min(token.confidence for token in group)
+        confidence = lowest_confidence(group)
         words.append(Word(text, confidence))
     return words
 
