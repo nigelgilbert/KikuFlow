@@ -161,7 +161,9 @@ def load_plugins(directory: Path) -> Plugins:
     for path in sorted(directory.glob("*.py")):
         with labelled(f"hook file {path.name}"):
             classes = run_hook_file(path)
-            plugins += [(path, plugin_class()) for plugin_class in classes]
+            for plugin_class in classes:
+                plugin = plugin_class()
+                plugins.append((path, plugin))
     return plugins
 
 
