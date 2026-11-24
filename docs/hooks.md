@@ -134,7 +134,7 @@ class ChatVoice(Plugin):
 
 ### Paste the raw transcript
 
-`verbatim.py` pastes what you said, word for word, when you start with "verbatim". The cleanup still runs; its result is dropped. The file sorts before `vocabulary.py`, so the transcript it keeps is the one from before that file's fixes.
+`verbatim.py` pastes what you said, word for word apart from the spellings in [`vocabs.txt`](customization.md#your-vocabulary), when you start with "verbatim". The cleanup still runs; its result is dropped. The file sorts before `vocabulary.py`, so the transcript it keeps is the one from before that file's fixes.
 
 ```python
 from typing import override

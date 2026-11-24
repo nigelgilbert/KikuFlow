@@ -72,9 +72,12 @@ Kiku Flow
 
 Blank lines and the spaces around a term are ignored. Choose "Reload Kiku Flow" after editing the file.
 
-When what you said matches a term in all but its case, it is spelled as listed, before any hook sees the text: "claude" becomes "Claude" and "mac" becomes "Mac". Only whole words match, so "machine" and "map" stay as they are. When two terms overlap, the longer one wins. This works with either engine.
+When what you said matches a term in all but its case, it is spelled as listed, before any hook sees the text: "claude" becomes "Claude" and "mac" becomes "Mac". Only whole words match, so "machine" and "map" stay as they are. When two terms start at the same word, as "Mac" and "Mac OS" do, the longer one wins. This works with either engine.
 
-With `[stt] engine = "whisper"`, the list also goes to the model as a hint, so it is more likely to hear those words in the first place. Parakeet has no way to take a hint.
+With `[stt] engine = "whisper"`, the list also goes to the model as a hint, so it is more likely to hear those words in the first place. Parakeet has no way to take a hint. Two things to know about the hint:
+
+- With a hint, Whisper may hear words in silence and paste them, where without one it pastes nothing. This was seen with a small Whisper model and not yet checked with the default one.
+- Whisper keeps only the end of a long hint, about its last 220 tokens, so the first terms of a long list stop being a hint. Their case is still fixed.
 
 The list nudges the output; it doesn't guarantee it. The cleanup model, which runs after it, can still change a word. It does not yet fix a word Parakeet hears as a different word, such as "Mac" heard as "map". For that, write a [hook](hooks.md#fix-the-words-it-mishears).
 
