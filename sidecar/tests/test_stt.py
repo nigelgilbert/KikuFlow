@@ -4,6 +4,7 @@ import wave
 import numpy as np
 import pytest
 
+from kiku_sidecar import stt
 from kiku_sidecar.stt import decode_audio, load_transcriber
 
 
@@ -38,4 +39,23 @@ def test_wav_with_wrong_rate_is_rejected():
 
 def test_unknown_engine_fails_at_load():
     with pytest.raises(ValueError, match="unknown stt.engine 'vosk'"):
-        load_transcriber("vosk", "some/model")
+        load_transcriber("vosk", "some/model", [])
+
+
+@pytest.mark.parametrize(
+    ("terms", "hint"),
+    [(["Claude", "Mac"], "Claude, Mac"), ([], None)],
+)
+def test_whisper_gets_the_terms_as_its_initial_prompt(
+    monkeypatch: pytest.MonkeyPatch, terms: list[str], hint: str | None
+):
+    calls = []
+
+    def transcribe(audio, **options):
+        calls.append(options)
+        return {"text": " Hello there. "}
+
+    monkeypatch.setattr(stt.mlx_whisper, "transcribe", transcribe)
+    transcriber = load_transcriber("whisper", "some/whisper", terms)
+    assert transcriber(np.zeros(16_000, np.float32)) == "Hello there."
+    assert calls == [{"path_or_hf_repo": "some/whisper", "initial_prompt": hint}]

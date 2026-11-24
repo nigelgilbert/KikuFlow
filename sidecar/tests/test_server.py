@@ -64,15 +64,17 @@ class Fakes:
         self.cleaned = "We should meet on Friday."
         self.cleaner_inputs: list[str] = []
         self.transcriber_loads = 0
+        self.transcriber_terms: list[str] = []
         self.cleaner_loads = 0
         # "stt", "vocabulary" or "cleanup": what that stage raises
         self.failure: dict[str, Exception] = {}
         self.loaded = threading.Event()
         self.loaded.set()
 
-    def load_transcriber(self, engine: str, model: str):
+    def load_transcriber(self, engine: str, model: str, terms: list[str]):
         self.loaded.wait()
         self.transcriber_loads += 1
+        self.transcriber_terms = terms
         if engine == "vosk":
             raise ValueError("unknown stt.engine 'vosk'")
 
@@ -254,6 +256,7 @@ def test_hooks_and_the_cleaner_get_the_vocabulary_spelling_but_raw_does_not(
     assert body["raw"] == RAW
     assert fakes.cleaner_inputs[-1] == "Um so we should uh meet on FRIDAY"
     assert calls(hooks)[0][:2] == ["on_transcribed", "Um so we should uh meet on FRIDAY"]
+    assert fakes.transcriber_terms == ["FRIDAY", "Um so"]
 
 
 def test_empty_transcription_fires_no_hooks(hooks: Path, client: TestClient):

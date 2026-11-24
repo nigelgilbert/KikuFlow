@@ -64,7 +64,7 @@ def load_models() -> None:
         plugins = load_plugins(HOOK_DIR)  # first, so a broken hook file fails in milliseconds
         config = load_config()
         terms = read_terms(VOCABULARY_FILE)
-        transcribe = load_transcriber(config.stt_engine, config.stt_model)
+        transcribe = load_transcriber(config.stt_engine, config.stt_model, terms)
         correct = load_corrector(terms)
         clean = load_cleaner(config)
         # One throwaway pass each, so the first dictation doesn't pay for kernel compilation.
